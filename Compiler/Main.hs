@@ -5,11 +5,14 @@ import Text.ParserCombinators.Parsec
 import System.IO 
 import System.Environment 
 
+pathIn = "../testcases/Friot/"
+pathOut = "../testcases/C/"
+
 main :: IO ()
 main = do
     args <- getArgs
-    inFile <- openFile (head args) ReadMode 
-    outFile <- openFile (args !! 1) ReadWriteMode 
+    inFile <- openFile (pathIn ++ (head args) ++ ".hs") ReadMode 
+    outFile <- openFile (pathOut ++ (head args) ++ ".c") ReadWriteMode 
     inpStr <- hGetContents inFile
 
     case P.parse (head args) inpStr of 
@@ -21,6 +24,6 @@ main = do
             putStrLn "-----------Transform succecfully!-----------" 
             print $ c_generator astp (signalGraph astp) 
                -- print $ generator $ transformer astp []
-            writeFile (args !! 1) ( c_generator astp (signalGraph astp) )
+            writeFile (pathOut ++ (head args) ++ ".c") ( c_generator astp (signalGraph astp) )
             hClose inFile
             --hClose outFile
