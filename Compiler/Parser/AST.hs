@@ -28,6 +28,7 @@ data Expr
   | Prior Int Expr 
   | Parent Expr
   | List [Expr]
+  | Effect String Expr
   deriving (Show, Eq)
 
 -- DEFINITIONS
@@ -106,6 +107,7 @@ lowVar_Not_Key= do
     "lift" -> fail "a reserved keyword"
     "lift_2" -> fail "a reserved keyword"
     "lift_3" -> fail "a reserved keyword"
+    "effect" -> fail "a reserved keyword"
     "otherwise" -> fail "a reserved keyword"
     otherwise -> string x
 

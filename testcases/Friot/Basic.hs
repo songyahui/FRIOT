@@ -2,6 +2,9 @@ module Basic where
 
 data Signal a = Signal a
 
+effect :: String -> a -> a
+effect str a = a 
+
 lift :: (a -> b ) -> Signal a  -> Signal b
 lift fun (Signal a) =  Signal (fun a )
 

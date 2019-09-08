@@ -13,6 +13,14 @@ eStr = do
     return $ Str mc
   where anyChar = ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++"_" ++ "-" ++ "." ++ " " 
 
+str :: Parser String-- Char
+str = do
+    fc    <- char '\"'
+    mc  <- many $ oneOf anyChar
+    ec   <- lexeme $ char '\"'
+    return $ mc
+  where anyChar = ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++"_" ++ "-" ++ "." ++ " " 
+
 ----------------------------------------
 decimalNumE :: Parser Expr
 decimalNumE = do
@@ -247,6 +255,13 @@ eFold = do
     input <- lexeme $  expr
     return $ Fold fun acc input
 
+eEffect :: Parser Expr
+eEffect = do 
+    kw <- lexeme $ string "effect"
+    event <- lexeme $ str
+    ex <- lexeme $  expr
+    return $ Effect event ex
+
 eLift:: Parser Expr
 eLift = do 
     kw <- lexeme $ string "lift"
@@ -292,7 +307,7 @@ eLiftn :: Parser Expr
 eLiftn = try eLift <|> eLift2 <|> eLift3
 
 expr :: Parser Expr
-expr = try eBinops <|> expr0  <|> eParent <|> eFold  <|>eLiftn  <|>eLambda <|> eIf <|> eLet <|> eBool <|> eList <|> eSync <|> ePrior
+expr = try eBinops <|> expr0  <|> eParent <|> eFold  <|>eLiftn  <|>eLambda <|> eIf <|> eLet <|> eBool <|> eList <|> eSync <|> ePrior <|> eEffect
 -- <|>eVar <|> eStr <|> eNum  --  <|> eRecord_Update <|> eTupple  <|> eNegate 
 -- eTag<|>eCase<|>
 

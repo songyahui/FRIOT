@@ -5,7 +5,7 @@ import Time
 import Rpi
 
 
-test = (\step count -> count + 1)
+test = (\step count -> effect "song" (count + 1))
 
 peoplecount :: Signal Int
 peoplecount = fold  (test) 0 (motion 0)  
@@ -14,11 +14,11 @@ isPeopleIn :: Signal Bool
 isPeopleIn = lift (meth) (motion 0)
 
 lcd_show :: Signal String
-lcd_show = lift_2 (\a b -> if a then toStr b else "null") (mode_LCD) (temprature 1)        
+lcd_show = lift_2 (\a b -> if a then (toStr b) else "null") (mode_LCD) (temprature 1)        
 
 
 lcd_show2 :: Signal String
-lcd_show2 = sync (lift_2 (\a b -> if a then toStr b else "null") (mode_LCD) (temprature 1)  )        
+lcd_show2 = sync (lift_2 (\a b -> if a then (toStr b) else "null") (mode_LCD) (temprature 1)  )        
 
 
 lcd_show3 :: Signal String
