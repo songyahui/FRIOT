@@ -13,13 +13,6 @@ eStr = do
     return $ Str mc
   where anyChar = ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++"_" ++ "-" ++ "." ++ " " 
 
-str :: Parser String-- Char
-str = do
-    fc    <- char '\"'
-    mc  <- many $ oneOf anyChar
-    ec   <- lexeme $ char '\"'
-    return $ mc
-  where anyChar = ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++"_" ++ "-" ++ "." ++ " " 
 
 ----------------------------------------
 decimalNumE :: Parser Expr
@@ -172,7 +165,7 @@ eParent = do
     lb <- lexeme $ char '(' 
     first <- lexeme $ expr
     rb <- lexeme_spa $ char ')' 
-    return $ Parent first
+    return $  first
 
 {--
 eCase :: Parser Expr-- Expr [(Pattern, Expr)]
@@ -260,7 +253,7 @@ eEffect = do
     kw <- lexeme $ string "effect"
     event <- lexeme $ str
     ex <- lexeme $  expr
-    return $ Effect event ex
+    return $ EFF event ex
 
 eLift:: Parser Expr
 eLift = do 

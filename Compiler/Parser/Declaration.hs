@@ -3,8 +3,10 @@ import Parser.AST
 import Text.ParserCombinators.Parsec 
 import Control.Applicative ((<*), (*>), (<$>), (<*>))
 import Parser.Pattern 
+import Parser.Effect 
 import Parser.Expression
 import Parser.Type as T
+import Antimirov.Antimirov
 
 {--
 unionDhelper :: Parser (String, [Type])
@@ -97,10 +99,20 @@ _def = do
     mc <- (definition fc)<|> (annotation fc)
     return mc
 
+effect_def :: Parser Decl
+effect_def = do  
+    lexeme $ char '@'
+    mc <- lexeme $ name
+    eq <- lexeme $ char '='
+    ec <-  lexeme $  effect_
+    lexeme $ string "@-}"
+    return  $ EFFECT mc ec
+
+
 
 
 declaration :: Parser Decl
-declaration = try importing_highding <|> importing <|>  _def --unionD_or_aliasD <|>
+declaration = try importing_highding <|> importing <|>  _def <|> effect_def--unionD_or_aliasD <|>
 
 
 declarations :: Parser [Decl]

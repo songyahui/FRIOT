@@ -4,7 +4,7 @@ import Text.Parsec.Pos
 import Text.Parsec.Prim
 import Text.ParserCombinators.Parsec 
 import Control.Applicative ((<*), (*>), (<$>), (<*>))
-
+import Antimirov.Antimirov
 type Name = String  
 
 -- EXPRESSIONS
@@ -28,7 +28,7 @@ data Expr
   | Prior Int Expr 
   | Parent Expr
   | List [Expr]
-  | Effect String Expr
+  | EFF String Expr
   deriving (Show, Eq)
 
 -- DEFINITIONS
@@ -60,6 +60,7 @@ data Decl
   = Annotation Name Type
   | Definition Name [Pattern] Expr
   | Import [String] [String]  -- import name, hiding
+  | EFFECT Name Effect
   deriving (Show, Eq)
 
 --------------------------------------------------
@@ -134,3 +135,11 @@ name = do
     return $ ([fc] ++ r)
     where fch =   ['A'..'Z'] ++ ['a'..'z'] ++ "_"
           rest =  fch ++ ['0'..'9'] 
+
+str :: Parser String-- Char
+str = do
+    fc    <- char '\"'
+    mc  <- many $ oneOf anyChar
+    ec   <- lexeme $ char '\"'
+    return $ mc
+  where anyChar = ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9']

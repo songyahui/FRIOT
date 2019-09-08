@@ -19,9 +19,9 @@ test_type = runParser types_ ()
 clearComments:: String -> String -> String --(char r[],int pProject)
 clearComments [] oupStr =  oupStr
 clearComments (x:xs) oupStr
+    | x == '{' && ((head xs) == '-') && ((head $ tail xs) == '@') =  clearComments (tail xs) (oupStr)
     | x == '$' = clearComments xs oupStr
     | x == '!' && ((head xs) == '!') = clearComments (tail xs) oupStr
-
     | x == '-' && ((head xs) == '-') = clearComments (clearComments_oneline (tail xs)) oupStr
     | x == '{' && ((head xs) == '-') = clearComments (clearComments_muilty (tail xs)) oupStr
     | otherwise = clearComments xs (oupStr ++ [x])

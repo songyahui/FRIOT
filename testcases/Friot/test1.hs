@@ -1,10 +1,14 @@
+{-
 import Prelude hiding (show)
 import Basic
 import Env
 import Time
 import Rpi
+-}
 
+{-@ test = (("b". ("a". "b")) + "a") @-}
 
+{-
 test = (\step count -> effect "song" (count + 1))
 
 peoplecount :: Signal Int
@@ -42,7 +46,7 @@ meth = \a -> if a then True else False
 
 main = bPlus [(lcd 2 (lcd_show)),(led 3 isPeopleIn),(lcd 4 (lcd_show1))]
 
-
+-}
 {--
 
 
