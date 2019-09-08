@@ -9,29 +9,29 @@ type Name = String
 
 -- EXPRESSIONS
 data Expr
-  = Str String
+  = Unit 
   | Int Int
-  | Float Double 
-  | Boolean String 
-  | Var String
-  | List [Expr]
-  | Negate Expr 
-  | Binops String Expr Expr
+  | Str String
+  | Boolean Bool 
+  | Float Float
+  | Var Name
   | Lambda [Pattern] Expr
-  | Call String [Expr]
+  | Binops String Expr Expr
+  | App Name [Expr]
   | If [(Expr, Expr)] Expr
   | Let [Def] Expr
-  | Case Expr [(Pattern, Expr)]
-  | Tupple Expr Expr [Expr] 
-  | Record [(String, Expr)]
-  | Update String [(String, Expr)]
-  | Tag String [Expr]
-  | Block [Expr]
+  | Fold Expr Expr Expr
+  | Lift Expr Expr -- lift
+  | Lift2 Expr [Expr] -- lift2
+  | Lift3 Expr [Expr] -- lift3
+  | Sync Expr 
+  | Prior Int Expr 
   | Parent Expr
+  | List [Expr]
   deriving (Show, Eq)
 
 -- DEFINITIONS
-data Def = Define (String) [Pattern] Expr 
+data Def = Define Name [Pattern] Expr 
   deriving (Show, Eq)
 
 -- PATTERN
@@ -39,30 +39,24 @@ data Pattern
   = PAnything
   | PStr String
   | PInt Int
-  | PVar String
-  | PCtor String [Pattern]
-  | PCons Pattern Pattern
-  | PList [Pattern]   
-  | PRecord [String]  --4 ?? 
-  | PTuple Pattern Pattern [Pattern] 
+  | PVar Name
   | PUnit
   deriving (Show, Eq)
 
 -- TYPE
-data Type
-  = TVar Name -- lowercase, type variable
-  | TString | TInt | TBool | TIO | TUnit
-  | TLambda [Type]  -- t1 -> t2
-  | TTuple Type Type [Type] -- at lease 2 
-  | TList Type
-  | TApp [Type]
+data Type 
+  = TString 
+  | TInt 
+  | TBool 
+  | TUnit
+  | TSignal Type 
+  | TFun Type Type -- function type from BasicType to BasicType
+
   deriving (Show, Eq)
 
 -- DECLARATIONS
 data Decl
-  = Union Name [String] [(Name, [Type])]
-  | Alias Name [String] Type
-  | Annotation Name Type
+  = Annotation Name Type
   | Definition Name [Pattern] Expr
   | Import [String] [String]  -- import name, hiding
   deriving (Show, Eq)
@@ -106,6 +100,12 @@ lowVar_Not_Key= do
     "else" -> fail "a reserved keyword"
     "then" -> fail "a reserved keyword"
     "type" -> fail "a reserved keyword"
+    "sync" -> fail "a reserved keyword"
+    "prior" -> fail "a reserved keyword"
+    "fold" -> fail "a reserved keyword"
+    "lift" -> fail "a reserved keyword"
+    "lift_2" -> fail "a reserved keyword"
+    "lift_3" -> fail "a reserved keyword"
     "otherwise" -> fail "a reserved keyword"
     otherwise -> string x
 

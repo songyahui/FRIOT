@@ -32,30 +32,41 @@ hexNumE = do
     return $ Int (read $ fc ++ rest)
   where numChar = ['0'..'9']
 
-eInt :: Parser Expr-- Int
-eInt = try hexNumE <|> decimalNumE
+decimalNum :: Parser Int
+decimalNum = do
+    fc  <- lexeme $ many1 $ oneOf numChar
+    mc  <- optionMaybe $ char '.'
+    case mc of 
+        Nothing -> return $ (read fc)
+        Just dot -> do 
+                ec <- lexeme $ many1 $ oneOf numChar
+                return $  (read (fc++"."++ec))
+  where numChar = ['0'..'9']
+
+eNum :: Parser Expr-- Int
+eNum = try hexNumE <|> decimalNumE
 
 ----------------------------------------
 
 eVar :: Parser Expr-- String
 eVar = do
-    fc <- lexeme_spa $ lowVar_Not_Key <|> lowVar_from_lib
+    fc <- lexeme_spa $ lowVar_Not_Key -- <|> lowVar_from_lib
     rest <- lexeme_spa $ optionMaybe $ many1 $expr
     case rest of 
         Nothing -> return $ Var fc
-        Just rr -> return $ Call fc rr
+        Just rr -> return $ App fc rr
 
-eNegate :: Parser Expr -- Expr
+{--eNegate :: Parser Expr -- Expr
 eNegate = do
     fc    <- lexeme $ char '-'
     mc    <- lexeme $ expr
-    return $ Negate mc     
+    return $ Negate mc   --}  
 
 eBinops :: Parser Expr-- String Expr Expr
 eBinops = do
     fe    <- lexeme $ expr0
     mc    <- try  (lexeme $ string "==")  <|> (lexeme $ string "+") <|> (lexeme $ string "-") <|> (lexeme $ string "*") <|> (lexeme $ string "/") <|> (lexeme $ string "=") <|> (lexeme $ string ">") <|> (lexeme $ string "<") 
-    ec    <- lexeme $ expr
+    ec    <- lexeme_spa $ expr
     return $ Binops mc fe ec  
 
 ----------------------------------------
@@ -90,6 +101,7 @@ dataTypecell = do
     ex <- lexeme $ expr
     return (c,ex)
 
+    {--
 eRecord :: String -> Parser Expr
 eRecord fst= do 
     eq <- lexeme $ char '=' 
@@ -113,6 +125,7 @@ eRecord_Update = do
     fst <- lexeme $ lowVar
     ec <- lexeme $ (eRecord fst) <|> (eUpdate fst) 
     return ec
+--}
 
 eList :: Parser Expr-- [Expr]
 eList = do 
@@ -146,6 +159,14 @@ case_bodyE = do
     ec <- lexeme $ expr 
     return $ (fp , ec)
 
+eParent :: Parser Expr 
+eParent = do 
+    lb <- lexeme $ char '(' 
+    first <- lexeme $ expr
+    rb <- lexeme_spa $ char ')' 
+    return $ Parent first
+
+{--
 eCase :: Parser Expr-- Expr [(Pattern, Expr)]
 eCase = do
     casec <- try $  lexeme $ string "case"
@@ -176,13 +197,18 @@ eTupple = do
                     rb2 <- lexeme_spa $ char ')' 
                     return $ Tupple first second rest
 
+                    --}
+{--
+
 lowVar_from_lib :: Parser String
 lowVar_from_lib = do 
   Tag fp mc <-  lexeme $ eTag
   dot <- char '.'
   lc <- lowVar_Not_Key
   return $ (fp ++ "." ++ lc)
+--}
 
+{--
 eTag ::Parser Expr
 eTag = do 
     fp <- try $ lexeme $ uppVar_Not_Key
@@ -196,23 +222,79 @@ eTag = do
             mc <- eVar
             case mc of 
                 Var fc -> do return $ Var (fp ++"."++ fc)
-                Call fc rr -> do return $ Call (fp ++"."++ fc) rr 
-        
+                App fc rr -> do return $ Call (fp ++"."++ fc) rr 
+    --}    
+eBoolT :: Parser Bool
+eBoolT = do 
+    re <- (string "True")
+    return $ True
+
+eBoolF :: Parser Bool
+eBoolF = do 
+    re <- (string "False")
+    return $ False
+
 eBool :: Parser Expr
 eBool = do  
-    fp <- lexeme $ (string "False") <|> (string "True")
+    fp <- lexeme $ eBoolF <|> eBoolT
     return $ Boolean fp
 
+eFold :: Parser Expr
+eFold = do 
+    kw <- lexeme $ string "fold"
+    fun <- lexeme $ expr
+    acc <- lexeme $ expr0
+    input <- lexeme $  expr
+    return $ Fold fun acc input
+
+eLift:: Parser Expr
+eLift = do 
+    kw <- lexeme $ string "lift"
+    fun <- lexeme $ expr
+    input <- lexeme $ expr
+    return $ Lift fun input
+
+eSync:: Parser Expr
+eSync = do 
+    kw <- lexeme $ string "sync"
+    input <- lexeme $ expr
+    return $ Sync input
+
+ePrior:: Parser Expr
+ePrior = do 
+    kw <- lexeme $ string "prior"
+    level <- lexeme $ decimalNum
+    input <- lexeme $ expr
+    return $ Prior level input
+
+eLift2:: Parser Expr
+eLift2 = do 
+    kw <- lexeme $ string "lift_2"
+    fun <- lexeme $ expr
+    input1 <- lexeme $ expr
+    input2 <- lexeme $ expr
+    return $ Lift2 fun ([input1] ++ [input2])
+
+eLift3:: Parser Expr
+eLift3 = do 
+    kw <- lexeme $ string "lift_3"
+    fun <- lexeme $ expr
+    input1 <- lexeme $ expr
+    input2 <- lexeme $ expr
+    input3 <- lexeme $ expr
+    return $ Lift3 fun ([input1] ++ [input2] ++ [input3])
 ----------------------------------------
 expr0 :: Parser Expr
-expr0 = try eStr <|> eInt <|> eVar <|> eNegate <|> eList <|> eTag
+expr0 = try eStr <|> eNum <|> eVar -- <|> eNegate <|> eList <|> eTag
 
--- expr :: Parser Expr
--- expr = try eBinops <|>eIf <|> eCase <|> eLet <|> eTupple <|> eRecord_Update <|> eLambda <|> expr0
+
+eLiftn :: Parser Expr
+eLiftn = try eLift <|> eLift2 <|> eLift3
 
 expr :: Parser Expr
-expr = try  eBinops <|> eTag<|>eCase<|>eIf <|> eLet <|> eBool <|>eVar <|> eStr <|> eInt <|> eList  <|> eRecord_Update <|> eTupple  <|> eNegate <|> eLambda
-
+expr = try eBinops <|> expr0  <|> eParent <|> eFold  <|>eLiftn  <|>eLambda <|> eIf <|> eLet <|> eBool <|> eList <|> eSync <|> ePrior
+-- <|>eVar <|> eStr <|> eNum  --  <|> eRecord_Update <|> eTupple  <|> eNegate 
+-- eTag<|>eCase<|>
 
 -- expression :: Parser Expr
 -- expression = try eIf <|> eLet <|> eCase<|> eLambda

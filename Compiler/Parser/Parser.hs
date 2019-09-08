@@ -9,7 +9,6 @@ import Control.Applicative ((<*), (*>), (<$>), (<*>))
 build_AST :: SourceName -> String -> Either ParseError [Decl]
 build_AST = runParser declarations ()
 
-
 test_type :: SourceName -> String -> Either ParseError [Type]
 test_type = runParser types_ ()
 ----------------------------------
@@ -40,8 +39,6 @@ clearComments_oneline (x:xs)
     | otherwise = clearComments_oneline xs
 
 -----------------------------------------------------
-
-
 
 parse :: String -> String -> Either ParseError [Decl]
 parse fileName inpStr = 

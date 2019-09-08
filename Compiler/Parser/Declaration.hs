@@ -6,12 +6,13 @@ import Parser.Pattern
 import Parser.Expression
 import Parser.Type as T
 
-
+{--
 unionDhelper :: Parser (String, [Type])
 unionDhelper = do 
     fc <- lexeme_spa $ uppVar
     ec <- lexeme_spa $ many $ type_
     return $ (fc,ec)
+
 
 unionD:: Parser Decl
 unionD = do 
@@ -26,7 +27,7 @@ aliasD = do
     (name, args) <- nameArgsEquals
     ec <- type_
     return $ Alias name args ec
-
+--}
 nameArgsEquals :: Parser (String, [String])
 nameArgsEquals = do 
     name <- lexeme $ uppVar
@@ -44,12 +45,13 @@ nameArgsEqualsHelp1 name args =
     do  eq <- lexeme $ char '='
         return $ ( name, reverse args )
 
-
+{--
 unionD_or_aliasD  :: Parser Decl
 unionD_or_aliasD = do 
     -- re <- try $ lexeme $ string "type" 
     fc <- lexeme $ unionD <|> aliasD
     return fc 
+--}
 
 dotFile :: Parser String
 dotFile = do 
@@ -98,7 +100,7 @@ _def = do
 
 
 declaration :: Parser Decl
-declaration = try importing_highding <|> importing <|> unionD_or_aliasD <|> _def
+declaration = try importing_highding <|> importing <|>  _def --unionD_or_aliasD <|>
 
 
 declarations :: Parser [Decl]

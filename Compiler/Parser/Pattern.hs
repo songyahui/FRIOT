@@ -47,7 +47,7 @@ pVar1 = do
     fc  <- try $ lexeme $ lowVar
     return $ PVar fc
 
-
+{--
 pCons :: Parser Pattern--Pattern Pattern
 pCons = do 
     fc <- try $ lexeme $ pVar
@@ -61,14 +61,14 @@ list = do
     content <- try $ sepBy pattern (lexeme $ char ',') 
     rb <- lexeme $ char ']' 
     return $ PList content
-
+--}
 
 unit :: Parser Pattern
 unit = do 
     rb <- lexeme $ char ')'
     return PUnit
 
-
+{--
 tuple :: Parser Pattern
 tuple = do 
     first <- lexeme $ pattern_expr
@@ -84,12 +84,12 @@ tuple = do
             rb2 <- lexeme $ char ')' 
             return $ PTuple first second rest
 
-
+--}
 
 tuple_or_unit :: Parser Pattern-- Pattern Pattern [Patter
 tuple_or_unit = do 
     lb <- lexeme $ char '(' 
-    rest <- tuple <|> unit
+    rest <-  unit --tuple <|>
     return rest
 
 
@@ -105,15 +105,19 @@ tuple_or_unit = do
 --             rest <- try $ sepBy pattern0 (lexeme $ char ',') 
 --             rb2 <- lexeme $ char ')' 
 --             return $ PTuple first second rest
-pPCtor:: Parser Pattern
+
+{--pPCtor:: Parser Pattern
 pPCtor = do 
     fc <- lexeme $ uppVar
     cd <- lexeme $ many pattern
     return $ PCtor fc cd
+    --}
 
 
 termHelp:: Parser Pattern
-termHelp = try pAnything <|>  pVar <|>  pInt <|> pStr <|> pPCtor
+termHelp = try pAnything <|>  pVar <|>  pInt <|> pStr -- <|> pPCtor
+
+{--
 
 record :: Parser Pattern
 record = do 
@@ -121,6 +125,7 @@ record = do
     content <- sepBy lowVar (lexeme $ char ',') 
     rb <- lexeme $ char '}' 
     return $ PRecord content
+--}
 
 pattern_expr :: Parser Pattern
 pattern_expr = do 
@@ -129,7 +134,7 @@ pattern_expr = do
 
 
 pattern :: Parser Pattern
-pattern = try record <|> list <|> tuple_or_unit <|>termHelp
+pattern = try tuple_or_unit <|>termHelp --record <|> list
 
 
 --patterns :: Parser [Pattern]
