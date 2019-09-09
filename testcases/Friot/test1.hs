@@ -6,7 +6,7 @@ import Time
 import Rpi
 -}
 
-{-@ test = (("b". ("a". "b")) + "a") @-}
+{-@ test = ((("a")*).("b"))+(emp) @-}
 
 {-
 test = (\step count -> effect "song" (count + 1))

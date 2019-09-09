@@ -109,11 +109,8 @@ effect_def = do
     return  $ EFFECT mc ec
 
 
-
-
 declaration :: Parser Decl
 declaration = try importing_highding <|> importing <|>  _def <|> effect_def--unionD_or_aliasD <|>
-
 
 declarations :: Parser [Decl]
 declarations = spaces *> many (lexeme $ declaration)

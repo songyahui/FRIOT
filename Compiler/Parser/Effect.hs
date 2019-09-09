@@ -19,53 +19,59 @@ singleton = do
     no <- try $ lexeme $ str
     return $ Singleton no
 
-
-dot_left:: Parser Effect 
-dot_left = do 
-    _ <-  lexeme_spa $ char '.'
-    ec <-  lexeme_spa $ basic_with_or
-    return ec
-
-dot :: Parser Effect
-dot = do
-    fir <- try $ lexeme_spa $ singleton
-    snd <- try $ dot_left
-    return $ (Dot fir snd)
+connect :: Parser Effect
+connect = do
+    fir <- try $ lexeme_spa $ parentEff
+    sign <- try $ lexeme_spa $ optionMaybe $ (char '.' <|> char '+' <|> char '&' <|> char '*')
+    case sign of 
+        Nothing -> return $ fir
+        Just '*' -> return $ Star fir
+        Just '.' -> do 
+            snd <-  try $ lexeme_spa $ parentEff
+            return $  Dot fir snd 
+        Just '+' -> do 
+            snd <-  try $ lexeme_spa $ parentEff
+            return $  OR fir snd 
+        Just '&' -> do 
+            snd <-  try $ lexeme_spa $ parentEff
+            return $  And fir snd 
+    
 
 orE_left:: Parser Effect 
 orE_left = do 
-    _ <-  lexeme_spa $ char '+'
-    ec <-  lexeme_spa $ basic_with_dot
+    _ <-  try $ lexeme_spa $ char '+'
+    ec <-  try $ lexeme_spa $ parentEff
     return ec
 
 orE :: Parser Effect
 orE = do
-    fir <- try $ lexeme_spa $ singleton
+    fir <- try $ lexeme_spa $ parentEff
     snd <- try $ orE_left
-    return $ (Dot fir snd)
+    return $ (And fir snd)
 
 
 {-
 and 
-star 
+
 neg
 -}
+
+star:: Parser Effect 
+star = do 
+    fir <- try $ lexeme $ parentEff
+    sign <- try $ lexeme $ string "^*"
+    return $ Star fir
+
 parentEff:: Parser Effect 
 parentEff = do 
-    lb <- lexeme $ char '(' 
-    first <- lexeme $ effect_
-    rb <- lexeme_spa $ char ')' 
+    lb <- try $ lexeme $ char '(' 
+    first <- try $ lexeme $ effect_
+    rb <- try $ lexeme_spa $ char ')' 
     return $ first
 
 basic :: Parser Effect 
-basic = try singleton <|> botton <|> empty 
-
-basic_with_dot :: Parser Effect 
-basic_with_dot = try dot <|> basic 
-
-basic_with_or :: Parser Effect 
-basic_with_or = try orE <|> basic 
+basic = try  singleton <|> botton <|> empty 
 
 
 effect_ :: Parser Effect 
-effect_ = try dot <|> orE  <|> parentEff  <|>   basic
+effect_ = try  connect  <|>  basic 
