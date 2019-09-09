@@ -4,7 +4,7 @@ import Text.Parsec.Pos
 import Text.Parsec.Prim
 import Text.ParserCombinators.Parsec 
 import Control.Applicative ((<*), (*>), (<$>), (<*>))
-import Antimirov.Antimirov
+import Verification.Antimirov
 type Name = String  
 
 -- EXPRESSIONS
@@ -26,7 +26,6 @@ data Expr
   | Lift3 Expr [Expr] -- lift3
   | Sync Expr 
   | Prior Int Expr 
-  | Parent Expr
   | List [Expr]
   | EFF String Expr
   deriving (Show, Eq)
@@ -60,7 +59,7 @@ data Decl
   = Annotation Name Type
   | Definition Name [Pattern] Expr
   | Import [String] [String]  -- import name, hiding
-  | EFFECT Name Effect
+  | EFFECT Name Effect Effect
   deriving (Show, Eq)
 
 --------------------------------------------------

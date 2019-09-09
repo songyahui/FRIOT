@@ -1,4 +1,4 @@
-module Antimirov.Antimirov where
+module Verification.Antimirov where
 import Debug.Trace
 import Data.Tree
 
@@ -36,8 +36,8 @@ type Env =  [(Effect, Effect)]
 printE :: Effect -> String
 printE effect =
     case effect of 
-        Bottom -> "Ø"
-        Empty -> "ϵ"
+        Bottom -> "_"
+        Empty -> "e"
         Singleton str -> str
         Dot eff1 eff2 -> "(" ++ (printE eff1) ++ ". "++(printE eff2) ++")"
         OR eff1 eff2 -> "(" ++ (printE eff1) ++ " + "++(printE eff2) ++")"
@@ -70,14 +70,14 @@ normal effect =
         OR r s -> 
             if r == s then 
                 --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE r)
-                r
+                normal r
             else if r == Bottom then  
                 --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE s)
-                s
+                normal s
             else if s == Bottom then  
                 --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE r)
-                r 
-            else effect
+                normal r 
+            else OR (normal r) (normal s)
         
         Star eff ->  
             case eff of 
@@ -106,6 +106,9 @@ normal effect =
             if r == Empty then 
                 --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE (normal s )) 
                 normal s 
+            else if s == Empty then 
+                --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE (normal s )) 
+                normal r 
             else if r == Bottom then 
                 --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Bottom)
                 Bottom

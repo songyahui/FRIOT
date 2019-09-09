@@ -6,7 +6,7 @@ import Parser.Pattern
 import Parser.Effect 
 import Parser.Expression
 import Parser.Type as T
-import Antimirov.Antimirov
+import Verification.Antimirov
 
 {--
 unionDhelper :: Parser (String, [Type])
@@ -103,10 +103,13 @@ effect_def :: Parser Decl
 effect_def = do  
     lexeme $ char '@'
     mc <- lexeme $ name
-    eq <- lexeme $ char '='
-    ec <-  lexeme $  effect_
+    eq <- lexeme $ string "<>"
+    re <- lexeme $ string "requires"
+    pre <- lexeme $  effect_
+    en <- lexeme $ string "ensures"
+    post <- lexeme $  effect_
     lexeme $ string "@-}"
-    return  $ EFFECT mc ec
+    return  $ EFFECT mc pre post
 
 
 declaration :: Parser Decl

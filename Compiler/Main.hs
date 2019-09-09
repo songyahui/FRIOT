@@ -4,6 +4,7 @@ import Parser.Parser as P
 import Text.ParserCombinators.Parsec 
 import System.IO 
 import System.Environment 
+import Verification.Verification
 
 pathIn = "../testcases/Friot/"
 pathOut = "../testcases/C/"
@@ -20,6 +21,8 @@ main = do
         Right astp -> do 
             print astp 
             putStrLn "-----------Parse succecfully!-----------" 
+            verification astp
+            putStrLn "-----------Verified succecfully!-----------" 
             --print $ signalGraph astp
             --putStrLn "-----------Transform succecfully!-----------" 
             --print $ c_generator astp (signalGraph astp) 

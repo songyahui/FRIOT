@@ -2,7 +2,7 @@ module Parser.Effect where
 import Parser.AST
 import Text.ParserCombinators.Parsec 
 import Control.Applicative ((<*), (*>), (<$>), (<*>))
-import Antimirov.Antimirov
+import Verification.Antimirov
 
 botton :: Parser Effect 
 botton = do 

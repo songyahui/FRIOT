@@ -6,10 +6,20 @@ import Time
 import Rpi
 -}
 
-{-@ test = ((("a")*).("b"))+(emp) @-}
-
-{-
+{-@ 
+test <> 
+requires emp 
+ensures  ("song")
+@-}
 test = (\step count -> effect "song" (count + 1))
+
+
+{-@ 
+getReady <> 
+requires emp 
+ensures  ((("Wait")*).("Ready")) +  (("Wait")*)
+@-}
+getReady a = if a < 0 then (effect "Ready" (a)) else (effect "Wait" getReady (a-1))
 
 peoplecount :: Signal Int
 peoplecount = fold  (test) 0 (motion 0)  
@@ -46,7 +56,7 @@ meth = \a -> if a then True else False
 
 main = bPlus [(lcd 2 (lcd_show)),(led 3 isPeopleIn),(lcd 4 (lcd_show1))]
 
--}
+
 {--
 
 
