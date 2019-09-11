@@ -7,7 +7,7 @@ import Rpi
 -}
 
 {-@ 
-test <> 
+test <>
 requires emp 
 ensures  ("song")
 @-}

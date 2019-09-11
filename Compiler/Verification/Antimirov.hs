@@ -18,6 +18,15 @@ tree = Node ("head","hello") subtree
 
 data Singleton a = Event a | NegEv a deriving (Show, Eq)
 
+data SymbolicValue 
+    = Iden String
+    | Value Int
+    | Add SymbolicValue SymbolicValue
+    | Minus SymbolicValue SymbolicValue
+    | Div SymbolicValue SymbolicValue
+    | Mul SymbolicValue SymbolicValue
+    deriving (Show, Eq)
+
 data Effect 
     = Bottom 
     | Empty
@@ -27,11 +36,46 @@ data Effect
     | And Effect Effect 
     | Star Effect 
     | Neg Effect  
-    -- | Omega Effect 
+    | Ttimes Effect SymbolicValue -- assuming T cannot be negetive
+    | Omega Effect 
     deriving (Show, Eq)
 
 type Env =  [(Effect, Effect)] 
 
+printSV ::SymbolicValue -> String
+printSV sv = 
+    case sv of 
+        Iden str -> str
+        Value num -> show num
+        Add sv1 sv2 -> "(" ++ (printSV sv1) ++ "+"++(printSV sv2) ++")"
+        Minus sv1 sv2 -> "(" ++ (printSV sv1) ++ "-"++(printSV sv2) ++")"
+        Div sv1 sv2 -> "(" ++ (printSV sv1) ++ "/"++(printSV sv2) ++")"
+        Mul sv1 sv2 -> "(" ++ (printSV sv1) ++ "*"++(printSV sv2) ++")"
+
+computeSV :: SymbolicValue -> SymbolicValue
+computeSV sv =
+    case sv of 
+        Add sv1 sv2 -> 
+            case (sv1,sv2) of 
+                (Value n1, Value n2) -> Value (n1 + n2)
+                (Value n1, _) -> Add sv2 sv1
+                otherwise -> if sv1 == sv2 then Mul sv1 (Value 2) else sv
+        Minus sv1 sv2 -> 
+            case (sv1,sv2) of 
+                (Value n1, Value n2) -> Value (n1 - n2)
+                (Value n1, _) -> Minus sv2 sv1
+                (Minus sv1 (Value n1), Value n2) -> computeSV (Minus sv1 (Value (n1 +n2)))
+                otherwise -> if sv1 == sv2 then Value 0 else sv
+        Div sv1 sv2 -> 
+            case (sv1,sv2) of 
+                (Value n1, Value n2) -> Value (n1 `div` n2)
+                otherwise -> sv
+        Mul sv1 sv2 -> 
+            case (sv1,sv2) of 
+                (Value n1, Value n2) -> Value (n1 * n2)
+                (Value n1, _) -> Mul sv2 sv1
+                otherwise -> sv
+        otherwise -> sv
 
 printE :: Effect -> String
 printE effect =
@@ -43,7 +87,8 @@ printE effect =
         OR eff1 eff2 -> "(" ++ (printE eff1) ++ " + "++(printE eff2) ++")"
         And eff1 eff2 -> "(" ++ (printE eff1) ++ " & "++(printE eff2) ++")"
         Star eff -> (printE eff) ++ "^*"
-        -- Omega eff -> (printE eff) ++ "^w"
+        Ttimes eff sv -> (printE eff) ++ "^" ++ (printSV sv)
+        Omega eff -> (printE eff) ++ "^w"
         Neg eff  -> "!" ++ (printE eff) 
         
 
@@ -62,6 +107,9 @@ nullable effect =
         And e1 e2 -> nullable e1 && nullable e2
         Star _ -> True 
         Neg e -> not (nullable e)
+        Ttimes _ _ -> False
+        Omega _ -> False
+
 
 
 normal :: Effect -> Effect
@@ -91,6 +139,18 @@ normal effect =
                     --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE (Star inner))
                     Star ( inner)
                 otherwise -> effect
+        Omega eff ->  
+            case eff of 
+                Bottom -> 
+                    --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Bottom)
+                    Bottom
+                Empty -> 
+                    --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Empty)
+                    Empty
+                Omega inner -> 
+                    --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE (Star inner))
+                    Star ( inner)
+                otherwise -> effect
         And r s -> 
             if r == s then  
                 --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE r)
@@ -116,6 +176,11 @@ normal effect =
         Neg e -> 
             case e of 
                 Neg ee ->  e 
+        Ttimes eff sv -> 
+            case computeSV sv of  
+                Value 0 -> Empty
+                otherwise -> effect
+                
         otherwise -> effect
         
 
@@ -151,7 +216,9 @@ first effect =
         OR e1 e2 -> union (first e1) (first e2) 
         And e1 e2 -> intersection (first e1) (first e2 )
         Star r -> first r 
+        Omega r -> first r 
         Neg e -> inversion (first e)
+        Ttimes eff sv -> first eff
 
 
 derivatives :: Effect -> Singleton String -> Effect
@@ -165,24 +232,38 @@ derivatives effect head =
             else Bottom
         Dot e1 e2 -> 
             if nullable e1 then normal $ OR (normal $ Dot (derivatives e1 head)  e2) (derivatives e2 head)
-            else normal $ Dot (derivatives e1 head) e2
+            else 
+                trace ("should be here!" ++ printE (normal $ Dot (derivatives e1 head) e2))
+                normal $ Dot (derivatives e1 head) e2
         OR e1 e2 -> OR (derivatives e1 head) (derivatives e2 head)
         And e1 e2 -> And (derivatives e1 head) (derivatives e2 head)
         Star e -> normal (Dot (derivatives e head) effect )
+        Omega e -> normal (Dot (derivatives e head) effect )
         Neg e -> Neg (derivatives e head)
+        Ttimes eff sv -> Dot (normal (derivatives eff head)) (Ttimes eff (computeSV( Minus sv (Value 1))))
+
+getAllIneq :: (Effect, Effect) -> Env
+getAllIneq (r,s) =
+    case (r,s) of 
+        (Ttimes eff1 sv1, Ttimes eff2 sv2) -> 
+            trace (printE (Ttimes eff1 (computeSV (Minus sv1 (Value 1)))) ++ "::: "++ printE ( Ttimes eff2 (computeSV (Minus sv2 (Value 1)))))
+            [(r,s), (Ttimes eff1 (computeSV (Minus sv1 (Value 1))), Ttimes eff2 (computeSV (Minus sv2 (Value 1))))]
+        otherwise -> [(r,s)]
 
 unfold :: Effect -> Effect -> Env -> ([Tree String],Bool)
 unfold r s env= 
     let headL = first r 
-        nEvn = env ++ [(r,s)]
+        nEvn = env ++ getAllIneq (r,s)
         helper h acc = 
              let (nodeNow, resultNow ) = acc
                  (node, result) = (containment  
-                                    (normal $ derivatives (normal  r) h) 
+                                    (normal $ derivatives (normal r) h) 
                                     (normal $ derivatives (normal s) h) nEvn)
              in 
                 case node of
-                    Node str list -> ( nodeNow ++ [Node ("[Delete Head:" ++ printS h ++ "] " ++str) list] , resultNow && result)
+                    Node str list -> 
+                        
+                        ( nodeNow ++ [Node ("[Delete Head:" ++ printS h ++ "] " ++str) list] , resultNow && result)
              
     in  
         --trace ("Fist List: " ++ show headL)
@@ -234,24 +315,27 @@ containment r s env=
         -- disapprove 
         (True, False) -> 
             --trace ("------------------------------------")
-            --trace ("GOAL: " ++ printEntail (normal r)  (normal s) ) 
+            trace ("GOAL: " ++ printEntail (normal r)  (normal s) ) 
             (Node ((printEntail (normal r)  (normal s) )++ " [Disprove!!!]") [] ,False)
         otherwise -> 
             let ifExist = (r,s) `elem` env
                 normR = (normal r) 
                 normS = (normal s)
-                (nodes, result) = unfold normR normS env
+                
             in  
                 if ifExist then ((Node ((printEntail normR normS) ++ " [In context!!!]") []), True)
                 else --trace ("------------------------------------")
-                    --trace ("GOAL: " ++ printEntail normR normS) 
-                    (Node (printEntail normR normS) nodes ,result)
+                    let 
+                        (nodes, result) = unfold normR normS env
+                    in
+                        trace ("other GOAL: " ++ printEntail normR normS) 
+                        (Node (printEntail normR normS) nodes ,result)
 
 append :: Effect -> Effect -> Effect
 append eff1 eff2 =
     case eff1 of 
         Bottom ->  eff2
-        -- Omega _ -> eff1
+        Omega _ -> eff1
         _ -> Dot eff1 eff2
        
 disjunction :: Effect -> Effect -> Effect

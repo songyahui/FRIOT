@@ -1,4 +1,4 @@
-import Antimirov
+import Verification.Antimirov
 
 a :: Effect
 a = Singleton "a"
