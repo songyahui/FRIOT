@@ -246,7 +246,7 @@ getAllIneq :: (Effect, Effect) -> Env
 getAllIneq (r,s) =
     case (r,s) of 
         (Ttimes eff1 sv1, Ttimes eff2 sv2) -> 
-            trace (printE (Ttimes eff1 (computeSV (Minus sv1 (Value 1)))) ++ "::: "++ printE ( Ttimes eff2 (computeSV (Minus sv2 (Value 1)))))
+            -- trace (printE (Ttimes eff1 (computeSV (Minus sv1 (Value 1)))) ++ "::: "++ printE ( Ttimes eff2 (computeSV (Minus sv2 (Value 1)))))
             [(r,s), (Ttimes eff1 (computeSV (Minus sv1 (Value 1))), Ttimes eff2 (computeSV (Minus sv2 (Value 1))))]
         otherwise -> [(r,s)]
 
@@ -315,7 +315,7 @@ containment r s env=
         -- disapprove 
         (True, False) -> 
             --trace ("------------------------------------")
-            trace ("GOAL: " ++ printEntail (normal r)  (normal s) ) 
+            -- trace ("GOAL: " ++ printEntail (normal r)  (normal s) ) 
             (Node ((printEntail (normal r)  (normal s) )++ " [Disprove!!!]") [] ,False)
         otherwise -> 
             let ifExist = (r,s) `elem` env
@@ -328,7 +328,7 @@ containment r s env=
                     let 
                         (nodes, result) = unfold normR normS env
                     in
-                        trace ("other GOAL: " ++ printEntail normR normS) 
+                        -- trace ("other GOAL: " ++ printEntail normR normS) 
                         (Node (printEntail normR normS) nodes ,result)
 
 append :: Effect -> Effect -> Effect
