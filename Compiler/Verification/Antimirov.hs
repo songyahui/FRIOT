@@ -397,3 +397,16 @@ pR r s (tree , res) =
                 }
 
 
+{-
+GOAL: a^t |- a^(t-1)
+"Succeed!"
+
+GOAL: a^(t-1) |- a^(t-1)
+"Succeed!"
+
+GOAL: a^(tt-1) |- a^(t-1)
+"Succeed!"
+
+fail -> nonterminating
+
+-}

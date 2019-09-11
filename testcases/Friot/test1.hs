@@ -9,9 +9,16 @@ import Rpi
 {-@ 
 test <>
 requires emp 
-ensures  ("song")
+ensures  (("song")^100)
 @-}
 test = (\step count -> effect "song" (count + 1))
+
+{-@ 
+omega  <>
+requires emp 
+ensures  (("song")w)
+@-}
+omega = (\step count -> effect "song" (count + 1))
 
 
 {-@ 

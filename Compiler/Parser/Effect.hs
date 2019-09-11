@@ -22,10 +22,11 @@ singleton = do
 connect :: Parser Effect
 connect = do
     fir <- try $ lexeme_spa $ parentEff
-    sign <- try $ lexeme_spa $ optionMaybe $ (char '.' <|> char '+' <|> char '&' <|> char '*')
+    sign <- try $ lexeme_spa $ optionMaybe $ (char '.' <|> char '+' <|> char '&' <|> char '*' <|> char 'w' <|> char '^')
     case sign of 
         Nothing -> return $ fir
         Just '*' -> return $ Star fir
+        Just 'w' -> return $ Omega fir
         Just '.' -> do 
             snd <-  try $ lexeme_spa $ parentEff
             return $  Dot fir snd 
@@ -35,6 +36,10 @@ connect = do
         Just '&' -> do 
             snd <-  try $ lexeme_spa $ parentEff
             return $  And fir snd 
+        Just '^' -> do 
+            snd <-  try $ lexeme_spa $ name <|> numinStr
+            if ((head snd) `elem` ['1'..'9']) then return $  Ttimes fir (Value (read snd)) 
+            else  return $  Ttimes fir (Iden snd) 
     
 
 orE_left:: Parser Effect 
@@ -56,11 +61,7 @@ and
 neg
 -}
 
-star:: Parser Effect 
-star = do 
-    fir <- try $ lexeme $ parentEff
-    sign <- try $ lexeme $ string "^*"
-    return $ Star fir
+
 
 parentEff:: Parser Effect 
 parentEff = do 

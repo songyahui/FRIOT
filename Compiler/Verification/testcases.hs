@@ -74,7 +74,7 @@ verify_door_control =
 example1 =  -- n = 2
     let left = append (Star a_star_b ) (append (append a (append a a)) (Star a))
         right = append (Star a_and_b) (append a (append a_and_b a_and_b))
-    in pR left right (containment left right [])
+    in pRpR left right (containment left right [])
 
 testL :: [Effect]
 testL = [ --a,b,ab,ba,aba,

@@ -135,6 +135,14 @@ name = do
     where fch =   ['A'..'Z'] ++ ['a'..'z'] ++ "_"
           rest =  fch ++ ['0'..'9'] 
 
+numinStr :: Parser String
+numinStr = do 
+    fc  <- oneOf fch
+    r   <- many $ oneOf rest
+    return $ ([fc] ++ r)
+    where fch =   ['1'..'9'] 
+          rest =   ['0'..'9'] 
+
 str :: Parser String-- Char
 str = do
     fc    <- char '\"'
