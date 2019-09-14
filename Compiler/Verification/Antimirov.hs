@@ -18,6 +18,25 @@ tree = Node ("head","hello") subtree
 
 data Singleton a = Event a | NegEv a deriving (Show, Eq)
 
+data Condition 
+    = TRUE
+    | FALSE
+    | Gt String Int
+    | Lt String Int
+    | Eq String Int
+    | AndCon Condition Condition
+    deriving (Show, Eq)
+
+printCon :: Condition -> String
+printCon con =
+    case con of 
+        TRUE -> "(true)"
+        FALSE -> "(false)"
+        Gt str num -> "(" ++ str ++ ">" ++ show num ++ ")"
+        Lt str num -> "(" ++str ++ "<" ++ show num ++ ")"
+        Eq str num -> "(" ++str ++ "=" ++ show num ++ ")"
+        AndCon con1 con2 -> "(" ++(printCon con1) ++ "/\\" ++  (printCon con2) ++ ")"
+
 data SymbolicValue 
     = Iden String
     | Value Int
@@ -36,11 +55,19 @@ data Effect
     | And Effect Effect 
     | Star Effect 
     | Neg Effect  
-    | Ttimes Effect SymbolicValue -- assuming T cannot be negetive
+    | Ttimes (Effect) SymbolicValue -- assuming T cannot be negetive
     | Omega Effect 
     deriving (Show, Eq)
 
 type Env =  [(Effect, Effect)] 
+
+type ConditionalEff = (Condition, Effect)
+     
+printConditionalEff :: ConditionalEff ->String
+printConditionalEff conEff =
+    case conEff of 
+        (con,eff) -> printCon con ++ printE eff
+
 
 printSV ::SymbolicValue -> String
 printSV sv = 
@@ -63,8 +90,8 @@ computeSV sv =
         Minus sv1 sv2 -> 
             case (sv1,sv2) of 
                 (Value n1, Value n2) -> Value (n1 - n2)
-                (Value n1, _) -> Minus sv2 sv1
                 (Minus sv1 (Value n1), Value n2) -> computeSV (Minus sv1 (Value (n1 +n2)))
+                (Value n1, _) -> Minus sv2 sv1
                 otherwise -> if sv1 == sv2 then Value 0 else sv
         Div sv1 sv2 -> 
             case (sv1,sv2) of 
@@ -90,6 +117,8 @@ printE effect =
         Ttimes eff sv -> (printE eff) ++ "^" ++ (printSV sv)
         Omega eff -> (printE eff) ++ "^w"
         Neg eff  -> "!" ++ (printE eff) 
+
+
         
 
 printS :: Singleton String -> String 
@@ -107,7 +136,7 @@ nullable effect =
         And e1 e2 -> nullable e1 && nullable e2
         Star _ -> True 
         Neg e -> not (nullable e)
-        Ttimes _ _ -> False
+        Ttimes _ _ -> True
         Omega _ -> False
 
 
@@ -131,7 +160,7 @@ normal effect =
             case eff of 
                 Bottom -> 
                     --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Bottom)
-                    Bottom
+                    Empty
                 Empty -> 
                     --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Empty)
                     Empty
@@ -172,7 +201,13 @@ normal effect =
             else if r == Bottom then 
                 --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Bottom)
                 Bottom
-            else Dot (normal r) (normal s)
+            else 
+                case (normal r, normal s) of
+                    (Ttimes inr svt, Ttimes ins svs) -> 
+                        if (inr) == (ins) then normal (Ttimes inr (Add svt svs )) else Dot (normal r) (normal s)
+                    (_, Ttimes ins svs) -> 
+                        if r == ins then normal (Ttimes ins (Add svs (Value 1) )) else Dot (normal r) (normal s)
+                    otherwise -> Dot (normal r) (normal s)
         Neg e -> 
             case e of 
                 Neg ee ->  e 
@@ -407,6 +442,13 @@ GOAL: a^(t-1) |- a^(t-1)
 GOAL: a^(tt-1) |- a^(t-1)
 "Succeed!"
 
+problem:
+1.t-1 |- t
 fail -> nonterminating
+
+a -> a^w 
+"Succeed!"
+it does not make sense if left is finite and the right is infinite.
+provide a resedue?
 
 -}
