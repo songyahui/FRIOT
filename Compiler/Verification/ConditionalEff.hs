@@ -23,8 +23,28 @@ printCon con =
         Eq str num -> "(" ++str ++ "=" ++ show num ++ ")"
         AndCon con1 con2 -> "(" ++(printCon con1) ++ "/\\" ++  (printCon con2) ++ ")"
 type ConditionalEff = (Condition, Effect)
+
+getCon :: ConditionalEff -> Condition
+getCon (con ,eff) = con
+
+getEff :: ConditionalEff -> Effect
+getEff (con ,eff) = eff
      
-printConditionalEff :: ConditionalEff ->String
-printConditionalEff conEff =
+printCondEff :: ConditionalEff ->String
+printCondEff conEff =
     case conEff of 
-        (con,eff) -> printCon con ++ printE eff
+        (con,eff) -> printCon con ++ "/\\" ++ printE eff
+
+printEntailCondEff :: ConditionalEff -> ConditionalEff -> String
+printEntailCondEff cf1 cf2 = 
+    (printCondEff cf1) ++ " |- " ++ (printCondEff cf2)
+
+
+
+entail :: ConditionalEff -> ConditionalEff -> Env -> (Tree String ,Bool)
+entail cf1 cf2 evn = 
+    case (getEff cf1) (getEff cf2) of
+        ()
+    -- trace ( (printEntailCondEff cf1 cf2))
+    -- (Node (printCondEff cf1) [], False)
+

@@ -34,14 +34,14 @@ showVeriPair pair =
 getNameFromEffect :: Decl -> String
 getNameFromEffect eff = 
     case eff of 
-        EFFECT name _ _ -> name
+        EFFECT name _ _ _ -> name
         otherwise -> "null" 
         
 getPairs :: [Decl] -> [Decl] -> [VeriPair] -> [VeriPair]
 getPairs [] [] acc = acc
 getPairs (eff:effR) (def:defL) acc =
     case (eff, def) of 
-        (EFFECT nameE pre post, Definition nameD pL expr ) ->
+        (EFFECT nameE pettern pre post, Definition nameD pL expr ) ->
             getPairs  effR defL ([VeriPair {nameVer =nameE, exprVer = expr, preCond = pre, postCond =post}] ++ acc)
         otherwise -> getPairs  effR defL acc
         
@@ -49,7 +49,7 @@ filterPair :: [Decl] -> [VeriPair]
 filterPair astp =
     let effectL = filter (\node -> 
                     case node of 
-                        EFFECT _ _ _ -> True
+                        EFFECT _ _ _ _ -> True
                         otherwise -> False   
                         ) astp
         defL = foldr (constructVeriPair astp) [] effectL

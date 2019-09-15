@@ -96,21 +96,21 @@ annotation fc = do
 _def  :: Parser Decl--String [Pattern] Expr
 _def = do 
     fc <- lexeme $ lowVar 
-    mc <- (definition fc)<|> (annotation fc)
+    mc <- (definition fc) <|> (annotation fc)
     return mc
 
 effect_def :: Parser Decl
 effect_def = do  
     lexeme $ char '@'
     mc <- lexeme $ name
+    patte <- lexeme $ many $ pattern
     eq <- lexeme $ string "<>"
     re <- lexeme $ string "requires"
     pre <- lexeme $  effect_
     en <- lexeme $ string "ensures"
     post <- lexeme $  effect_
     lexeme $ string "@-}"
-    return  $ EFFECT mc pre post
-
+    return  $ EFFECT mc patte pre post
 
 declaration :: Parser Decl
 declaration = try importing_highding <|> importing <|>  _def <|> effect_def--unionD_or_aliasD <|>

@@ -59,7 +59,7 @@ data Decl
   = Annotation Name Type
   | Definition Name [Pattern] Expr
   | Import [String] [String]  -- import name, hiding
-  | EFFECT Name Effect Effect
+  | EFFECT Name [Pattern] Effect Effect
   deriving (Show, Eq)
 
 --------------------------------------------------

@@ -18,9 +18,6 @@ tree = Node ("head","hello") subtree
 
 data Singleton a = Event a | NegEv a deriving (Show, Eq)
 
-
-
-
 data SymbolicValue 
     = Iden String
     | Value Int
@@ -44,9 +41,6 @@ data Effect
     deriving (Show, Eq)
 
 type Env =  [(Effect, Effect)] 
-
-
-
 
 printSV ::SymbolicValue -> String
 printSV sv = 
