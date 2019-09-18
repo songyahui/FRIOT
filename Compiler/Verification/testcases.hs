@@ -59,7 +59,7 @@ verify_motion_sensor1 =
         eff_if = (Singleton "Active")
         eff_else = append (Singleton "Passive") eff_motion
         final = disjunction eff_if eff_else
-    in pR  final eff_motion (containment final eff_motion [])
+    in pR  final eff_motion 
 
 verify_door_control = 
     let eff_motion = (Dot (Star (Singleton "Passive")) (Singleton "Active")) 
@@ -69,12 +69,12 @@ verify_door_control =
         d = append c (Singleton "Delay")
         eff_door = Star d
         final = append d eff_door
-    in pR final eff_door (containment final eff_door [])
+    in pR final eff_door 
 
 example1 =  -- n = 2
     let left = append (Star a_star_b ) (append (append a (append a a)) (Star a))
         right = append (Star a_and_b) (append a (append a_and_b a_and_b))
-    in pR left right (containment left right [])
+    in pR left right 
 
 testL :: [Effect]
 testL = [ --a,b,ab,ba,aba,
@@ -94,8 +94,10 @@ test (x:xs) =
     in do{
         putStrLn ("***********************");
         putStrLn ("THE " ++ show (length xs) ++ "TH TEST CASE:");
-        pR (a) (b) (containment a b []);
+        pR (a) (b);
         test xs;
     }
 
 main = test testL_product
+
+

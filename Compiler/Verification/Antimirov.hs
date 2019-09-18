@@ -1,6 +1,7 @@
 module Verification.Antimirov where
 import Debug.Trace
 import Data.Tree
+import Data.List
 
 subtree :: [Tree (String, String)]
 subtree = [ Node ("head", "foo") []
@@ -81,7 +82,7 @@ printE :: Effect -> String
 printE effect =
     case effect of 
         Bottom -> "_"
-        Empty -> "e"
+        Empty -> "emp"
         Singleton str -> str
         Dot eff1 eff2 -> "(" ++ (printE eff1) ++ ". "++(printE eff2) ++")"
         OR eff1 eff2 -> "(" ++ (printE eff1) ++ " + "++(printE eff2) ++")"
@@ -109,7 +110,7 @@ nullable effect =
         And e1 e2 -> nullable e1 && nullable e2
         Star _ -> True 
         Neg e -> not (nullable e)
-        Ttimes _ _ -> True
+        Ttimes _ _ -> False
         Omega _ -> False
 
 
@@ -177,10 +178,10 @@ normal effect =
             else 
                 case (normal r, normal s) of
                     (Ttimes inr svt, Ttimes ins svs) -> 
-                        if (inr) == (ins) then normal (Ttimes inr (Add svt svs )) else Dot (normal r) (normal s)
+                        if (inr) == (ins) then (Ttimes inr (computeSV (Add svt svs ))) else Dot (normal r) (normal s)
                     (_, Ttimes ins svs) -> 
-                        if r == ins then normal (Ttimes ins (Add svs (Value 1) )) else Dot (normal r) (normal s)
-                    otherwise -> Dot (normal r) (normal s)
+                        if r == ins then normal (Ttimes ins (computeSV (Add svs (Value 1) ))) else Dot (normal r) (normal s)
+                    (a,b) -> (Dot a b)
         Neg e -> 
             case e of 
                 Neg ee ->  e 
@@ -192,17 +193,6 @@ normal effect =
         otherwise -> effect
         
 
-intersection :: [Singleton String]  -> [Singleton String]  -> [Singleton String] 
-intersection r s = 
-    let helper eff effs acc = 
-            case effs of
-                [] -> acc 
-                x:xs -> if x == eff then acc ++ [x] else helper eff xs acc
-    in  foldr (\re acc->  helper re s acc) [] r 
-
-union:: [Singleton String]  -> [Singleton String]  -> [Singleton String] 
-union r s = 
-    r ++ foldr (\se acc -> if elem se r then [] else [se]) [] s
 
 inversion :: [Singleton String]  -> [Singleton String] 
 inversion r = 
@@ -222,7 +212,7 @@ first effect =
             if nullable e1 then union (first e1) (first e2) 
             else first e1
         OR e1 e2 -> union (first e1) (first e2) 
-        And e1 e2 -> intersection (first e1) (first e2 )
+        And e1 e2 -> intersect (first e1) (first e2 )
         Star r -> first r 
         Omega r -> first r 
         Neg e -> inversion (first e)
@@ -241,7 +231,7 @@ derivatives effect head =
         Dot e1 e2 -> 
             if nullable e1 then normal $ OR (normal $ Dot (derivatives e1 head)  e2) (derivatives e2 head)
             else 
-                trace ("should be here!" ++ printE (normal $ Dot (derivatives e1 head) e2))
+                --trace ("should be here!" ++ printE (normal $ Dot (derivatives e1 head) e2))
                 normal $ Dot (derivatives e1 head) e2
         OR e1 e2 -> OR (derivatives e1 head) (derivatives e2 head)
         And e1 e2 -> And (derivatives e1 head) (derivatives e2 head)
@@ -378,16 +368,18 @@ righAsso effect =
         _ -> effect
 
 
-pR :: Effect -> Effect -> (Tree String ,Bool) -> IO ()
-pR r s (tree , res) = 
-    if res then 
+pR :: Effect -> Effect  -> IO ()
+pR r s  = 
+    let (tree , res) = containment r s []
+    in
+     if res then 
         do {
         putStrLn ("============= Report =============");
         putStrLn ("GOAL: " ++ printEntail r s);
         print "Succeed!" ;
         putStrLn $ drawTree tree
-    }
-    else 
+     }
+     else 
         case getResidue r s [] of 
             Nothing -> 
                 do {
@@ -405,23 +397,4 @@ pR r s (tree , res) =
                 }
 
 
-{-
-GOAL: a^t |- a^(t-1)
-"Succeed!"
 
-GOAL: a^(t-1) |- a^(t-1)
-"Succeed!"
-
-GOAL: a^(tt-1) |- a^(t-1)
-"Succeed!"
-
-problem:
-1.t-1 |- t
-fail -> nonterminating
-
-a -> a^w 
-"Succeed!"
-it does not make sense if left is finite and the right is infinite.
-provide a resedue?
-
--}
