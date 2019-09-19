@@ -26,11 +26,14 @@ computeSV sv =
     case sv of 
         Add sv1 sv2 -> 
             case (sv1,sv2) of 
+                (ddd, Value 0) -> ddd
+                (Minus (Iden id) (Value n), (Value n1) ) -> computeSV (Minus (Iden id) (Value (n - n1)))
                 (Value n1, Value n2) -> Value (n1 + n2)
                 (Value n1, _) -> Add sv2 sv1
                 otherwise -> if sv1 == sv2 then Mul sv1 (Value 2) else sv
         Minus sv1 sv2 -> 
             case (sv1,sv2) of 
+                (ddd, Value 0) -> ddd
                 (Value n1, Value n2) -> Value (n1 - n2)
                 (Minus sv1 (Value n1), Value n2) -> computeSV (Minus sv1 (Value (n1 +n2)))
                 (Value n1, _) -> Minus sv2 sv1

@@ -85,3 +85,16 @@ printCon con =
         Eq str num -> "(" ++str ++ "=" ++ show num ++ ")"
         AndCon con1 con2 -> "(" ++(printCon con1) ++ "/\\" ++  (printCon con2) ++ ")"
         
+printCondEff :: ConditionalEff ->String
+printCondEff conEff =
+    case conEff of 
+        -- (FALSE, _) -> ""
+        (con,eff) -> printCon con ++ "/\\" ++ printE eff
+
+printEntail1 :: Condition -> Effect-> Effect ->String
+printEntail1 con eff1 eff2 =
+    "[Condition: "++ printCon con ++ "] " ++ printEntail eff1 eff2
+
+printEntailCondEff :: ConditionalEff -> ConditionalEff -> String
+printEntailCondEff cf1 cf2 = 
+    (printCondEff cf1) ++ " |- " ++ (printCondEff cf2)

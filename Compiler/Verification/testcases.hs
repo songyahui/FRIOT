@@ -1,5 +1,7 @@
 import Verification.Antimirov
 import Verification.DataStructure
+import Verification.ConditionalEff
+import Verification.Helpers
 a :: Effect
 a = Singleton "a"
 
@@ -98,6 +100,43 @@ test (x:xs) =
         test xs;
     }
 
-main = test testL_product
+ca :: ConditionalEff 
+ca = (TRUE, Singleton "a")
+
+cta :: ConditionalEff 
+cta = (TRUE, Ttimes (Singleton "a") (Minus (Iden "ta") (Value  1)))
+
+ctb :: ConditionalEff 
+ctb = (TRUE, Ttimes (Singleton "b") (Minus (Iden "tb") (Value  1)))
+
+ct2 :: ConditionalEff
+ct2 = (TRUE, Dot (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1))) (Ttimes (Singleton "b") (Minus (Iden "t") (Value  1))))
+
+ct1 :: ConditionalEff 
+ct1 = (Eq ("t") (2), Dot (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1))) (Singleton "b"))
+
+
+syh1 = (TRUE, Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1))))
+syh2 = (TRUE,  (Ttimes (Singleton "a") (Iden "t") ))
+antimirov_test = test testL_product 
+
+syh = p_Con_R syh1 syh2
+
+extend_t:: ConditionalEff -> IO()
+extend_t ce=  
+    let effL = extentCondition ce
+        helper [] = return()
+        helper (x:xs) = 
+            do {
+                putStrLn (printCondEff x) ;
+                helper xs
+            }
+    in do {
+        putStrLn (printCondEff ce ) ;
+        putStrLn ("---->") ;
+        helper effL
+    }
+    
+   -- map (\x -> print ( (printCondEff x))) (extentCondition ct)
 
 

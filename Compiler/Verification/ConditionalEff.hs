@@ -3,6 +3,7 @@ import Debug.Trace
 import Data.Tree
 import Verification.DataStructure
 import Verification.Antimirov
+import Verification.Helpers
 import Data.List
 
 
@@ -12,21 +13,6 @@ getCon (con ,eff) = con
 getEff :: ConditionalEff -> Effect
 getEff (con ,eff) = eff
      
-printCondEff :: ConditionalEff ->String
-printCondEff conEff =
-    case conEff of 
-        -- (FALSE, _) -> ""
-        (con,eff) -> printCon con ++ "/\\" ++ printE eff
-
-printEntail1 :: Condition -> Effect-> Effect ->String
-printEntail1 con eff1 eff2 =
-    "[Condition: "++ printCon con ++ "] " ++ printEntail eff1 eff2
-
-printEntailCondEff :: ConditionalEff -> ConditionalEff -> String
-printEntailCondEff cf1 cf2 = 
-    (printCondEff cf1) ++ " |- " ++ (printCondEff cf2)
-
-
 dotHead :: Effect -> [Effect]  -- a^t.b -> a^t
 dotHead eff =
     case eff of 
@@ -76,7 +62,10 @@ checkRedundent con =
             else AndCon s1 (checkRedundent s2)
         otherwise -> con
         
-             
+         
+fixed :: (Eq a) =>a -> a -> Bool
+fixed a1 a2 =
+    if a1 == a2 then True else False
 
 normalCon :: Condition -> Condition
 normalCon con =
@@ -127,9 +116,10 @@ normalCon con =
                 (a, b) ->  
                     let na = normalCon a
                         nb = normalCon b
-                    in if na == FALSE || nb == FALSE || na == TRUE || nb == TRUE 
-                        then normalCon (checkRedundent$  AndCon na nb)
-                       else (checkRedundent$ AndCon na nb)
+                        checkR = checkRedundent  (AndCon na nb)
+                    in if fixed  checkR (normalCon checkR) then checkR
+                       else normalCon checkR
+                    
         otherwise -> con
 
 
@@ -201,20 +191,30 @@ checkFirstElm con eff1 eff2 evn =
     in foldr helper (Node (printEntail1 con eff1 eff2) [] ,True) cartProd
         
     
+
+{-
+entail -> used to entail two effects with their condition
+    1. conjunct their condition, and check redundent
+    2. unify the conjuncted condition with LHS and RHS
+-}
 entail :: ConditionalEff -> ConditionalEff -> Env -> (Tree String ,Bool)
 entail ceff1 ceff2 evn = 
-    let (con1, eff1) = ceff1
-        (con2, eff2) = ceff2
+    let (con1, r) = ceff1
+        (con2, s) = ceff2
         andCondition = checkRedundent $ normalCon (AndCon con1 con2)
+        unifiedR = unifyCondition (andCondition, r)
+        unifiedS = unifyCondition (andCondition, s)
     in 
         if andCondition == FALSE 
             then (Node ((printEntailCondEff ceff1 ceff2 )++ " [Condition Contradictory]") [] ,False)
         else 
-            checkFirstElm andCondition (normal eff1) (normal eff2) evn
+            checkFirstElm andCondition (normal unifiedR) (normal unifiedS) evn
 
 
 {-
 extentCondition -> used to capture the branching of a effect if it contains any Ttimes part. 
+    the very first step of checking effects, 
+    given an effect, to get all the conditions from the Ttimes effect.
 -}
 extentCondition :: ConditionalEff -> [ConditionalEff]
 extentCondition (condition, effect) =
@@ -238,6 +238,34 @@ extentCondition (condition, effect) =
                 FALSE -> False
                 otherwise -> True
     in filter filterNotFalse (helper (Empty , condition)  effect)
+
+{-
+unifyCondition ->  to make the effect consistant with the conditions upon the equality.
+-}
+unifyCondition :: ConditionalEff -> Effect
+unifyCondition (condition , effect) =
+    let rewriteSV str num sv = 
+            case sv of 
+                Iden id -> if id == str then Value num else  sv  
+                Value n -> sv
+                Add sv1 sv2 -> computeSV ( Add (rewriteSV str num sv1) (rewriteSV str num sv2))
+                Minus sv1 sv2 -> computeSV ( Minus (rewriteSV str num sv1) (rewriteSV str num sv2))
+                Div sv1 sv2 -> computeSV ( Div (rewriteSV str num sv1) (rewriteSV str num sv2))
+                Mul sv1 sv2 -> computeSV ( Mul (rewriteSV str num sv1) (rewriteSV str num sv2))
+        rewriteEff :: String -> Int -> Effect -> Effect
+        rewriteEff str num eff = 
+            case eff of
+                Ttimes effin sv -> normal (Ttimes effin (rewriteSV str num sv))
+                Dot e1 e2 -> Dot (rewriteEff str num  e1) (rewriteEff  str num e2)
+                OR e1 e2 -> OR (rewriteEff str num  e1) (rewriteEff str num  e2)
+                otherwise ->eff
+        rewriteEq :: Condition -> Effect -> Effect
+        rewriteEq con eff =
+            case con of 
+                Eq str value -> rewriteEff str value eff
+                AndCon c1 c2 -> rewriteEq c1 (rewriteEq c2 eff)
+                otherwise -> eff
+    in  (rewriteEq condition effect)
 
 p_Con_R :: ConditionalEff -> ConditionalEff  -> IO ()
 p_Con_R r s  = 
