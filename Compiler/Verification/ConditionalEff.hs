@@ -122,6 +122,46 @@ normalCon con =
                     
         otherwise -> con
 
+unfold :: Condition -> Effect -> Effect -> Env -> ([Tree String],Bool)
+unfold con r s env= 
+    let headL = first r 
+        nEvn = env ++ getAllIneq (r,s)
+        helper h acc = 
+             let (nodeNow, resultNow ) = acc
+                 (node, result) = (checkFirstElm  con
+                                    (normal $ derivatives (normal r) h) 
+                                    (normal $ derivatives (normal s) h) nEvn)
+             in 
+                case node of
+                    Node str list -> 
+                        
+                        ( nodeNow ++ [Node ("[Delete Head:" ++ printS h ++ "] " ++str) list] , resultNow && result)
+             
+    in  
+        --trace ("Fist List: " ++ show headL)
+             foldr helper ([] ,True) headL
+
+containment :: Condition -> Effect -> Effect -> Env -> (Tree String ,Bool)
+containment con r s env= 
+    case ((nullable r), (nullable s)) of
+        -- disapprove 
+        (True, False) -> 
+            --trace ("------------------------------------")
+            -- trace ("GOAL: " ++ printEntail (normal r)  (normal s) ) 
+            (Node ((printEntail con (normal r)  (normal s) )++ " [Disprove!!!]") [] ,False)
+        otherwise -> 
+            let ifExist = (r,s) `elem` env
+                normR = (normal r) 
+                normS = (normal s)
+                
+            in  
+                if ifExist then ((Node ((printEntail con normR normS) ++ " [In context!!!]") []), True)
+                else --trace ("------------------------------------")
+                    let 
+                        (nodes, result) = unfold con normR normS env
+                    in
+                        -- trace ("other GOAL: " ++ printEntail normR normS) 
+                        (Node (printEntail con normR normS) nodes ,result)
 
 
 checkFirstElm :: Condition -> Effect -> Effect -> Env -> (Tree String ,Bool)
@@ -132,53 +172,91 @@ checkFirstElm con eff1 eff2 evn =
         checkHead (h1, rest1) (h2,rest2) =
             case (h1, h2) of
                 (Ttimes e1 sv1, Ttimes e2 sv2) -> 
-                    let (tree, result) = (containment e1 e2 [])
+                    let (tree, result) = (containment con e1 e2 [])
                     in 
                         if result ==  False then (tree, result)
                         else 
                             let afterL = rest1
                                 afterS = normal ((Dot (normal (Ttimes e2 (Minus sv2 sv1 ))) rest2))
-                            in entail (con, normal afterL) (con, normal afterS) evn
-                
+                            in checkFirstElm con (normal afterL) (normal afterS) evn
                             
                 (Ttimes e1 sv1, Star e2) ->
-                    let (tree, result) = (containment e1 e2 [])
+                    let (tree, result) = (containment con e1 e2 [])
                     in 
                         if result ==  False then (tree, result)
                         else 
                             let afterL = rest1
                                 afterS = normal (Dot h2 rest2)
-                            in entail (con, normal afterL) (con, normal afterS) evn
-
+                            in checkFirstElm con (normal afterL) (normal afterS) evn
+{-testcase:
+syh1 = (TRUE, Dot (Singleton "b") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1)))))
+syh2 = (TRUE, Dot (Singleton "b") (Star (Singleton "a")  ))
+syh = p_Con_R syh1 syh2
+syh
+-}
                 
                 (Ttimes e1 sv1, Omega e2) ->
-                    let (tree, result) = (containment e1 e2 [])
+                    let (tree, result) = (containment con e1 e2 [])
                     in 
                         if result ==  False then (tree, result)
                         else 
                             let afterL = rest1
-                                afterS = normal (Dot h2 rest2)
+                                afterS = normal h2 
                             in entail (con, normal afterL) (con, normal afterS) evn
+{-testcase:
+syh1 = (TRUE, Dot (Singleton "b") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1)))))
+syh2 = (TRUE, Dot (Singleton "b") (Omega (Singleton "a")  ))
+syh = p_Con_R syh1 syh2
+syh
+-}
+                 
+                                    
+                -- (Ttimes e1 sv1, eff) -> -- others
+                -- (Star e1, Ttimes e2 sv2) ->
+               
+                (Star e1, Star e2) -> entail (con, e1) (con,  e2) evn
+{-
+syh1 = (TRUE, Star (Dot (Singleton "b") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1))))))
+syh2 = (TRUE, Star (Dot (Singleton "b") (Ttimes (Singleton "a") (Iden "t") )))
+syh = p_Con_R syh1 syh2
+syh
 
-                    {-
-                (Ttimes e1 sv1, eff) -> -- others
-        
-                (Star e1, Ttimes e2 sv2) ->
-                (Star e1, Star e2) ->
-                (Star e1, Omega e2) ->
-                (Star e1, eff) -> -- others
+-}
+                    
+                --(Star e1, Omega e2) ->
+                --(Star e1, eff) -> -- others
 
-                (Omega e1, Ttimes e2 sv2) ->
-                (Omega e1, Star e2) ->
-                (Omega e1, Omega e2) ->
-                (Omega e1, eff) -> -- others
+                --(Omega e1, Ttimes e2 sv2) ->
+                --(Omega e1, Star e2) ->
+                    
+                (Omega e1, Omega e2) ->entail (con, e1) (con,  e2) evn
+{-
+syh1 = (TRUE, Omega (Dot (Singleton "b") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1))))))
+syh2 = (TRUE, Omega (Dot (Singleton "b") (Ttimes (Singleton "a") (Iden "t") )))
+syh = p_Con_R syh1 syh2
+syh
 
-                (eff, Ttimes e2 sv2) ->
-                (eff, Star e2) ->
-                (eff, Omega e2) ->
-                (eff, eff) -> -- others
-                -}
-                otherwise -> containment eff1 eff2 []
+-}
+                
+                --(Omega e1, eff) -> -- others
+                
+
+                (eff, Ttimes e2 sv2) -> entail (con, eff) (con,  e2) evn
+                (eff, Star e2) ->entail (con, eff) (con,  e2) evn
+                (eff, Omega e2) ->entail (con, eff) (con,  e2) evn
+                
+                
+                otherwise -> containment con eff1 eff2 []
+{-testcase:
+syh1 = (TRUE, Dot (Singleton "b") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1)))))
+syh2 = (TRUE, Dot (Singleton "b") (Ttimes (Singleton "a") (Iden "t") ))
+syh = p_Con_R syh1 syh2
+
+syh1 = (TRUE, Dot (Singleton "b") (Dot (Singleton "a") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  2))))))
+syh2 = (TRUE, Dot (Singleton "b") (Ttimes (Singleton "a") (Iden "t") ))
+syh = p_Con_R syh1 syh2
+
+-}
             
             
         helper (l, s) acc =
@@ -188,7 +266,7 @@ checkFirstElm con eff1 eff2 evn =
                 Node str list -> ( Node str (list ++ [node]) , resultNow && result)
             
         
-    in foldr helper (Node (printEntail1 con eff1 eff2) [] ,True) cartProd
+    in foldr helper (Node (printEntail con eff1 eff2) [] ,True) cartProd
         
     
 
@@ -316,3 +394,33 @@ p_Con_R r s  =
                 }
 
     -}
+pR :: Effect -> Effect  -> IO ()
+pR r s  = 
+    let (tree , res) = containment TRUE r s []
+    in
+     if res then 
+        do {
+        putStrLn ("============= Report =============");
+        putStrLn ("GOAL: " ++ printEntail TRUE r s);
+        print "Succeed!" ;
+        putStrLn $ drawTree tree
+     }
+     else 
+        case getResidue r s [] of 
+            Nothing -> 
+                do {
+                    putStrLn ("============= Report =============");
+                    putStrLn ("GOAL: " ++ printEntail TRUE r s);
+                    print "Failed.";
+                    putStrLn $ drawTree tree
+                }
+            Just eff -> 
+                do {
+                    putStrLn ("============= Report =============");
+                    putStrLn ("GOAL: " ++ printEntail TRUE r s);
+                    print ("Succeed with a residue: "  ++ printE eff);
+                    putStrLn $ drawTree tree
+                }
+
+
+

@@ -203,24 +203,7 @@ getAllIneq (r,s) =
             [(r,s), (Ttimes eff1 (computeSV (Minus sv1 (Value 1))), Ttimes eff2 (computeSV (Minus sv2 (Value 1))))]
         otherwise -> [(r,s)]
 
-unfold :: Effect -> Effect -> Env -> ([Tree String],Bool)
-unfold r s env= 
-    let headL = first r 
-        nEvn = env ++ getAllIneq (r,s)
-        helper h acc = 
-             let (nodeNow, resultNow ) = acc
-                 (node, result) = (containment  
-                                    (normal $ derivatives (normal r) h) 
-                                    (normal $ derivatives (normal s) h) nEvn)
-             in 
-                case node of
-                    Node str list -> 
-                        
-                        ( nodeNow ++ [Node ("[Delete Head:" ++ printS h ++ "] " ++str) list] , resultNow && result)
-             
-    in  
-        --trace ("Fist List: " ++ show headL)
-             foldr helper ([] ,True) headL
+
 
 
 
@@ -259,27 +242,6 @@ getResidue r s env=
             
 
 
-containment :: Effect -> Effect -> Env -> (Tree String ,Bool)
-containment r s env= 
-    case ((nullable r), (nullable s)) of
-        -- disapprove 
-        (True, False) -> 
-            --trace ("------------------------------------")
-            -- trace ("GOAL: " ++ printEntail (normal r)  (normal s) ) 
-            (Node ((printEntail (normal r)  (normal s) )++ " [Disprove!!!]") [] ,False)
-        otherwise -> 
-            let ifExist = (r,s) `elem` env
-                normR = (normal r) 
-                normS = (normal s)
-                
-            in  
-                if ifExist then ((Node ((printEntail normR normS) ++ " [In context!!!]") []), True)
-                else --trace ("------------------------------------")
-                    let 
-                        (nodes, result) = unfold normR normS env
-                    in
-                        -- trace ("other GOAL: " ++ printEntail normR normS) 
-                        (Node (printEntail normR normS) nodes ,result)
 
 append :: Effect -> Effect -> Effect
 append eff1 eff2 =
@@ -318,35 +280,5 @@ righAsso effect =
             --trace ("righAsso:" )
             fixPoint  righAsso (Dot (righAsso e1) (Dot (righAsso e2) (righAsso e3)))
         _ -> effect
-
-
-pR :: Effect -> Effect  -> IO ()
-pR r s  = 
-    let (tree , res) = containment r s []
-    in
-     if res then 
-        do {
-        putStrLn ("============= Report =============");
-        putStrLn ("GOAL: " ++ printEntail r s);
-        print "Succeed!" ;
-        putStrLn $ drawTree tree
-     }
-     else 
-        case getResidue r s [] of 
-            Nothing -> 
-                do {
-                    putStrLn ("============= Report =============");
-                    putStrLn ("GOAL: " ++ printEntail r s);
-                    print "Failed.";
-                    putStrLn $ drawTree tree
-                }
-            Just eff -> 
-                do {
-                    putStrLn ("============= Report =============");
-                    putStrLn ("GOAL: " ++ printEntail r s);
-                    print ("Succeed with a residue: "  ++ printE eff);
-                    putStrLn $ drawTree tree
-                }
-
 
 

@@ -116,11 +116,10 @@ ct1 :: ConditionalEff
 ct1 = (Eq ("t") (2), Dot (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1))) (Singleton "b"))
 
 
-syh1 = (TRUE, Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1))))
-syh2 = (TRUE,  (Ttimes (Singleton "a") (Iden "t") ))
+
 antimirov_test = test testL_product 
 
-syh = p_Con_R syh1 syh2
+
 
 extend_t:: ConditionalEff -> IO()
 extend_t ce=  

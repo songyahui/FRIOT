@@ -70,9 +70,9 @@ printS (Event str) =  show str
 printS (NegEv str) =  show str
 
 -- print entailment of two effects
-printEntail :: Effect -> Effect -> String
-printEntail r s = 
-    (printE r) ++ " |- " ++ (printE s)
+printEntail :: Condition -> Effect -> Effect -> String
+printEntail con r s = 
+    printCon con ++ ": " ++(printE r) ++ " |- " ++ (printE s)
 
 -- print conditions 
 printCon :: Condition -> String
@@ -91,9 +91,6 @@ printCondEff conEff =
         -- (FALSE, _) -> ""
         (con,eff) -> printCon con ++ "/\\" ++ printE eff
 
-printEntail1 :: Condition -> Effect-> Effect ->String
-printEntail1 con eff1 eff2 =
-    "[Condition: "++ printCon con ++ "] " ++ printEntail eff1 eff2
 
 printEntailCondEff :: ConditionalEff -> ConditionalEff -> String
 printEntailCondEff cf1 cf2 = 
