@@ -2,6 +2,7 @@ module Verification.Antimirov where
 import Debug.Trace
 import Data.Tree
 import Data.List
+import Verification.DataStructure
 
 subtree :: [Tree (String, String)]
 subtree = [ Node ("head", "foo") []
@@ -17,41 +18,8 @@ tree = Node ("head","hello") subtree
 
 -- putStrLn $ drawTree tree
 
-data Singleton a = Event a | NegEv a deriving (Show, Eq)
 
-data SymbolicValue 
-    = Iden String
-    | Value Int
-    | Add SymbolicValue SymbolicValue
-    | Minus SymbolicValue SymbolicValue
-    | Div SymbolicValue SymbolicValue
-    | Mul SymbolicValue SymbolicValue
-    deriving (Show, Eq)
 
-data Effect 
-    = Bottom 
-    | Empty
-    | Singleton String
-    | Dot Effect Effect
-    | OR Effect Effect 
-    | And Effect Effect 
-    | Star Effect 
-    | Neg Effect  
-    | Ttimes (Effect) SymbolicValue -- assuming T cannot be negetive
-    | Omega Effect 
-    deriving (Show, Eq)
-
-type Env =  [(Effect, Effect)] 
-
-printSV ::SymbolicValue -> String
-printSV sv = 
-    case sv of 
-        Iden str -> str
-        Value num -> show num
-        Add sv1 sv2 -> "(" ++ (printSV sv1) ++ "+"++(printSV sv2) ++")"
-        Minus sv1 sv2 -> "(" ++ (printSV sv1) ++ "-"++(printSV sv2) ++")"
-        Div sv1 sv2 -> "(" ++ (printSV sv1) ++ "/"++(printSV sv2) ++")"
-        Mul sv1 sv2 -> "(" ++ (printSV sv1) ++ "*"++(printSV sv2) ++")"
 
 computeSV :: SymbolicValue -> SymbolicValue
 computeSV sv =
@@ -78,26 +46,8 @@ computeSV sv =
                 otherwise -> sv
         otherwise -> sv
 
-printE :: Effect -> String
-printE effect =
-    case effect of 
-        Bottom -> "_"
-        Empty -> "emp"
-        Singleton str -> str
-        Dot eff1 eff2 -> "(" ++ (printE eff1) ++ ". "++(printE eff2) ++")"
-        OR eff1 eff2 -> "(" ++ (printE eff1) ++ " + "++(printE eff2) ++")"
-        And eff1 eff2 -> "(" ++ (printE eff1) ++ " & "++(printE eff2) ++")"
-        Star eff -> (printE eff) ++ "^*"
-        Ttimes eff sv -> (printE eff) ++ "^" ++ (printSV sv)
-        Omega eff -> (printE eff) ++ "^w"
-        Neg eff  -> "!" ++ (printE eff) 
-
-
         
 
-printS :: Singleton String -> String 
-printS (Event str) =  show str
-printS (NegEv str) =  show str
 
 nullable :: Effect -> Bool
 nullable effect = 
@@ -107,9 +57,9 @@ nullable effect =
         Singleton _ -> False
         Dot e1 e2 -> nullable e1 && nullable e2
         OR e1 e2 -> nullable e1 || nullable e2
-        And e1 e2 -> nullable e1 && nullable e2
+        -- And e1 e2 -> nullable e1 && nullable e2
         Star _ -> True 
-        Neg e -> not (nullable e)
+        -- Neg e -> not (nullable e)
         Ttimes _ _ -> False
         Omega _ -> False
 
@@ -154,17 +104,7 @@ normal effect =
                     --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE (Star inner))
                     Star ( inner)
                 otherwise -> effect
-        And r s -> 
-            if r == s then  
-                --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE r)
-                r 
-            else if r == Bottom then 
-                --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Bottom)
-                Bottom
-            else if s == Bottom then 
-                --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Bottom)
-                Bottom
-            else effect
+        
         Dot r s -> 
             if r == Empty then 
                 --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE (normal s )) 
@@ -182,9 +122,21 @@ normal effect =
                     (_, Ttimes ins svs) -> 
                         if r == ins then normal (Ttimes ins (computeSV (Add svs (Value 1) ))) else Dot (normal r) (normal s)
                     (a,b) -> (Dot a b)
+        {-And r s -> 
+            if r == s then  
+                --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE r)
+                r 
+            else if r == Bottom then 
+                --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Bottom)
+                Bottom
+            else if s == Bottom then 
+                --trace ("[Normal] " ++ printE effect ++ " ==> " ++ printE Bottom)
+                Bottom
+            else effect
         Neg e -> 
             case e of 
                 Neg ee ->  e 
+                -}
         Ttimes eff sv -> 
             case computeSV sv of  
                 Value 0 -> Empty
@@ -212,10 +164,10 @@ first effect =
             if nullable e1 then union (first e1) (first e2) 
             else first e1
         OR e1 e2 -> union (first e1) (first e2) 
-        And e1 e2 -> intersect (first e1) (first e2 )
+        -- And e1 e2 -> intersect (first e1) (first e2 )
         Star r -> first r 
         Omega r -> first r 
-        Neg e -> inversion (first e)
+        -- Neg e -> inversion (first e)
         Ttimes eff sv -> first eff
 
 
@@ -234,10 +186,10 @@ derivatives effect head =
                 --trace ("should be here!" ++ printE (normal $ Dot (derivatives e1 head) e2))
                 normal $ Dot (derivatives e1 head) e2
         OR e1 e2 -> OR (derivatives e1 head) (derivatives e2 head)
-        And e1 e2 -> And (derivatives e1 head) (derivatives e2 head)
+        -- And e1 e2 -> And (derivatives e1 head) (derivatives e2 head)
         Star e -> normal (Dot (derivatives e head) effect )
         Omega e -> normal (Dot (derivatives e head) effect )
-        Neg e -> Neg (derivatives e head)
+        -- Neg e -> Neg (derivatives e head)
         Ttimes eff sv -> Dot (normal (derivatives eff head)) (Ttimes eff (computeSV( Minus sv (Value 1))))
 
 getAllIneq :: (Effect, Effect) -> Env
@@ -267,9 +219,6 @@ unfold r s env=
         --trace ("Fist List: " ++ show headL)
              foldr helper ([] ,True) headL
 
-printEntail :: Effect -> Effect -> String
-printEntail eff1 eff2 = 
-    (printE eff1) ++ " |- " ++ (printE eff2)
 
 
 unfold_getResidue :: Effect -> Effect -> Env-> Maybe Effect

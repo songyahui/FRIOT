@@ -1,29 +1,10 @@
 module Verification.ConditionalEff where
 import Debug.Trace
 import Data.Tree
+import Verification.DataStructure
 import Verification.Antimirov
 import Data.List
 
-data Condition 
-    = TRUE
-    | FALSE
-    | Gt String Int
-    | Lt String Int
-    | Eq String Int
-    | AndCon Condition Condition
-    deriving (Show, Eq)
-
-printCon :: Condition -> String
-printCon con =
-    case con of 
-        TRUE -> "(true)"
-        FALSE -> "(false)"
-        Gt str num -> "(" ++ str ++ ">" ++ show num ++ ")"
-        Lt str num -> "(" ++str ++ "<" ++ show num ++ ")"
-        Eq str num -> "(" ++str ++ "=" ++ show num ++ ")"
-        AndCon con1 con2 -> "(" ++(printCon con1) ++ "/\\" ++  (printCon con2) ++ ")"
-        
-type ConditionalEff = (Condition, Effect)
 
 getCon :: ConditionalEff -> Condition
 getCon (con ,eff) = con
@@ -56,9 +37,9 @@ dotHead eff =
         Omega r -> [eff]
         Ttimes eff sv -> [eff]
         Dot h rest -> dotHead h
-        And left right -> intersect (dotHead left) (dotHead right)
+        -- And left right -> intersect (dotHead left) (dotHead right)
         OR e1 e2 -> union (dotHead e1) (dotHead e2) 
-        Neg e -> [eff]
+        -- Neg e -> [eff]
 
 
 splitDot :: Effect -> [(Effect, Effect)]  -- a^t.b -> (a^t, b)
@@ -75,9 +56,9 @@ splitDot eff =
                 heads = map (\(e1,e2) -> e1) pairs
                 rests = map (\(e1,e2) -> normal (Dot e2 rest)) pairs
             in zip heads rests
-        And left right -> intersect (splitDot left) (splitDot right)
+        -- And left right -> intersect (splitDot left) (splitDot right)
         OR e1 e2 ->  (splitDot e1)++ (splitDot e2) 
-        Neg e -> [(eff, Empty)]
+        -- Neg e -> [(eff, Empty)]
 
 checkRedundent :: Condition -> Condition
 checkRedundent con = 
@@ -286,7 +267,6 @@ p_Con_R r s  =
                     putStrLn $ drawTree tree;
                     printReprot ls
                     }
-
 
     in  printReprot combine
      

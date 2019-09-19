@@ -1,5 +1,5 @@
 import Verification.Antimirov
-
+import Verification.DataStructure
 a :: Effect
 a = Singleton "a"
 
