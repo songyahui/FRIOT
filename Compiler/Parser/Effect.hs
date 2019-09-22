@@ -2,7 +2,7 @@ module Parser.Effect where
 import Parser.AST
 import Text.ParserCombinators.Parsec 
 import Control.Applicative ((<*), (*>), (<$>), (<*>))
-import Verification.Antimirov
+import Verification.DataStructure
 
 botton :: Parser Effect 
 botton = do 
@@ -33,9 +33,9 @@ connect = do
         Just '+' -> do 
             snd <-  try $ lexeme_spa $ parentEff
             return $  OR fir snd 
-        Just '&' -> do 
+        {-Just '&' -> do 
             snd <-  try $ lexeme_spa $ parentEff
-            return $  And fir snd 
+            return $  And fir snd -}
         Just '^' -> do 
             snd <-  try $ lexeme_spa $ name <|> numinStr
             if ((head snd) `elem` ['1'..'9']) then return $  Ttimes fir (Value (read snd)) 
@@ -48,12 +48,12 @@ orE_left = do
     ec <-  try $ lexeme_spa $ parentEff
     return ec
 
-orE :: Parser Effect
+{-orE :: Parser Effect
 orE = do
     fir <- try $ lexeme_spa $ parentEff
     snd <- try $ orE_left
     return $ (And fir snd)
-
+-}
 
 {-
 and 

@@ -236,12 +236,11 @@ syh2 = (TRUE, Omega (Dot (Singleton "b") (Ttimes (Singleton "a") (Iden "t") )))
 syh = p_Con_R syh1 syh2
 syh
 
--}
-                
+-}  
                 --(Omega e1, eff) -> -- others
                 
 
-                (eff, Ttimes e2 sv2) -> entail (con, eff) (con,  e2) evn
+                (eff, Ttimes e2 (Value n)) -> entail (con, eff) (con,  Ttimes e2 (Value n)) evn
                 (eff, Star e2) ->entail (con, eff) (con,  e2) evn
                 (eff, Omega e2) ->entail (con, eff) (con,  e2) evn
                 

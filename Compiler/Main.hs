@@ -1,5 +1,5 @@
 import Parser.Parser as P
---import SignalGraph.SignalGraph 
+import SignalGraph.SignalGraph 
 --import Generator.CGenerator
 import Text.ParserCombinators.Parsec 
 import System.IO 
@@ -21,10 +21,10 @@ main = do
         Right astp -> do 
             print astp 
             putStrLn "-----------Parse succecfully!-----------" 
-            verification astp
-            putStrLn "-----------Verified succecfully!-----------" 
+            --verification astp
+            --putStrLn "-----------Verified succecfully!-----------" 
             --print $ signalGraph astp
-            --putStrLn "-----------Transform succecfully!-----------" 
+            --putStrLn "-----------SignalGraph succecfully!-----------" 
             --print $ c_generator astp (signalGraph astp) 
                -- print $ generator $ transformer astp []
             --writeFile (pathOut ++ (head args) ++ ".c") ( c_generator astp (signalGraph astp) )

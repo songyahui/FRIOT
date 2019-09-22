@@ -21,8 +21,10 @@ type Accumulator = Expr
 
 data SignalNode = 
     Source NM Type [Expr]  -- input signal type, param, name 
-    | LiftN NM Int Methord Type  [SignalNode] -- liftn 
-    | FoldP NM Methord Type  Accumulator SignalNode
+    | LiftN NM Int Methord Type [SignalNode] -- liftn 
+    | FoldP NM Methord Type Accumulator SignalNode
+    | SYNC SignalNode
+    | PRIOR SignalNode
     | IoN NM Type Expr SignalNode
     deriving (Show, Eq)
     --   ouput      input

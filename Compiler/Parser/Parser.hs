@@ -19,17 +19,18 @@ test_type = runParser types_ ()
 clearComments:: String -> String -> String --(char r[],int pProject)
 clearComments [] oupStr =  oupStr
 clearComments (x:xs) oupStr
+    | x == '{' && ((head xs) == '-') && ((head $ tail xs) == '-') = clearComments (clearComments_muilty (tail (tail xs))) oupStr
     | x == '{' && ((head xs) == '-') && ((head $ tail xs) == '@') =  clearComments (tail xs) (oupStr)
-    | x == '$' = clearComments xs oupStr
-    | x == '!' && ((head xs) == '!') = clearComments (tail xs) oupStr
+    -- | x == '$' = clearComments xs oupStr
+    -- | x == '!' && ((head xs) == '!') = clearComments (tail xs) oupStr
     | x == '-' && ((head xs) == '-') = clearComments (clearComments_oneline (tail xs)) oupStr
-    | x == '{' && ((head xs) == '-') = clearComments (clearComments_muilty (tail xs)) oupStr
+    
     | otherwise = clearComments xs (oupStr ++ [x])
    
 clearComments_muilty :: String -> String
 clearComments_muilty [] = []
 clearComments_muilty (x:xs) 
-    | x == '-' &&  ((head xs) == '}') = tail xs 
+    | x == '-' && ((head xs) == '-') && ((head $ tail xs) == '}') = tail xs 
     | otherwise = clearComments_muilty xs
 
 clearComments_oneline:: String -> String

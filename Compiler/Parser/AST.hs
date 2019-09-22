@@ -4,7 +4,7 @@ import Text.Parsec.Pos
 import Text.Parsec.Prim
 import Text.ParserCombinators.Parsec 
 import Control.Applicative ((<*), (*>), (<$>), (<*>))
-import Verification.Antimirov
+import Verification.DataStructure
 type Name = String  
 
 -- EXPRESSIONS

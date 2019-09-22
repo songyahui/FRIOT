@@ -19,8 +19,6 @@ tree = Node ("head","hello") subtree
 -- putStrLn $ drawTree tree
 
 
-
-
 computeSV :: SymbolicValue -> SymbolicValue
 computeSV sv =
     case sv of 

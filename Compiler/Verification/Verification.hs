@@ -1,4 +1,6 @@
 module Verification.Verification where
+import Verification.ConditionalEff
+import Verification.DataStructure
 import Verification.Antimirov
 import Parser.AST 
 import Debug.Trace
@@ -96,7 +98,7 @@ verification astp =
         helper (x:xs) = 
             case x of 
                 VeriPair n e final post -> do {
-                    (pR final post (containment final post [])) ;
+                    (p_Con_R (TRUE,final) (TRUE,post) ) ;
                     helper xs
                     } 
 
