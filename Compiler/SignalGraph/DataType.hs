@@ -20,11 +20,12 @@ type NM = String
 type Accumulator = Expr
 
 data SignalNode = 
-    Source NM Type [Expr]  -- input signal type, param, name 
-    | LiftN NM Int Methord Type [SignalNode] -- liftn 
-    | FoldP NM Methord Type Accumulator SignalNode
-    | SYNC SignalNode
-    | PRIOR SignalNode
-    | IoN NM Type Expr SignalNode
+      NoNode 
+    | Source NM Type [Expr]  -- input signal type, param, name 
+    | LiftN  NM Type Methord [SignalNode] -- liftn 
+    | FoldP  NM Type Methord Accumulator SignalNode -- 
+    | IoN    NM Type Expr SignalNode -- int -> Signal -> IO()
+    | SYNC   SignalNode
+    | PRIOR  SignalNode  
     deriving (Show, Eq)
     --   ouput      input

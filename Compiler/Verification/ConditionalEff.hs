@@ -189,10 +189,10 @@ checkFirstElm con eff1 eff2 evn =
                                 afterS = normal (Dot h2 rest2)
                             in checkFirstElm con (normal afterL) (normal afterS) evn
 {-testcase:
-syh1 = (TRUE, Dot (Singleton "b") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1)))))
-syh2 = (TRUE, Dot (Singleton "b") (Star (Singleton "a")  ))
-syh = p_Con_R syh1 syh2
-syh
+left = (TRUE, Dot (Singleton "b") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1)))))
+right = (TRUE, Dot (Singleton "b") (Star (Singleton "a")  ))
+re = p_Con_R left right
+re
 -}
                 
                 (Ttimes e1 sv1, Omega e2) ->
@@ -204,15 +204,16 @@ syh
                                 afterS = normal h2 
                             in entail (con, normal afterL) (con, normal afterS) evn
 {-testcase:
-syh1 = (TRUE, Dot (Singleton "b") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1)))))
-syh2 = (TRUE, Dot (Singleton "b") (Omega (Singleton "a")  ))
-syh = p_Con_R syh1 syh2
-syh
+left = (TRUE, Dot (Singleton "b") (Dot (Singleton "a") (Ttimes (Singleton "a") (Minus (Iden "t") (Value  1)))))
+right = (TRUE, Dot (Singleton "b") (Omega (Singleton "a")  ))
+re = p_Con_R left right
+re
 -}
                  
                                     
                 -- (Ttimes e1 sv1, eff) -> -- others
-                -- (Star e1, Ttimes e2 sv2) ->
+                -- (Star e1, 
+                 --(e2 sv2) ->
                
                 (Star e1, Star e2) -> entail (con, e1) (con,  e2) evn
 {-
@@ -241,7 +242,7 @@ syh
                 
 
                 (eff, Ttimes e2 (Value n)) -> entail (con, eff) (con,  Ttimes e2 (Value n)) evn
-                (eff, Star e2) ->entail (con, eff) (con,  e2) evn
+                --(eff, Star e2) ->entail (con, eff) (con,  e2) evn
                 (eff, Omega e2) ->entail (con, eff) (con,  e2) evn
                 
                 
@@ -345,10 +346,10 @@ unifyCondition (condition , effect) =
     in  (rewriteEq condition effect)
 
 p_Con_R :: ConditionalEff -> ConditionalEff  -> IO ()
-p_Con_R r s  = 
+p_Con_R rr ss  = 
     let 
-        conRL = extentCondition r
-        conSL = extentCondition s
+        conRL = extentCondition rr
+        conSL = extentCondition ss
         combine = [(x,y) | x <- conRL, y <- conSL] 
         
         printReprot [] = print ("END.") 
@@ -359,7 +360,8 @@ p_Con_R r s  =
                 if res then 
                     do {
                     putStrLn ("============= Report =============");
-                    putStrLn ("GOAL: " ++ printEntailCondEff r s);
+                    putStrLn ("GOAL: " ++ printEntail TRUE (snd rr) (snd ss));
+                    putStrLn ("===>: " ++ printEntailCondEff r s);
                     print "Succeed!" ;
                     putStrLn $ drawTree tree;
                     printReprot ls
@@ -367,7 +369,8 @@ p_Con_R r s  =
                  else 
                     do{
                     putStrLn ("============= Report =============");
-                    putStrLn ("GOAL: " ++ printEntailCondEff r s);
+                    putStrLn ("GOAL: " ++ printEntail TRUE (snd rr) (snd ss));
+                    putStrLn ("===>: " ++ printEntailCondEff r s);
                     print "fail";
                     putStrLn $ drawTree tree;
                     printReprot ls

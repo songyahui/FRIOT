@@ -7,29 +7,7 @@ import Rpi
 
 
 
-{-@ 
-test step count <>
-requires emp 
-ensures  (("song")^100)
-@-}
 test step count =  effect "song" (count + 1)
-
-{-@ 
-omega step count <>
-requires emp 
-ensures  (("song")w)
-@-}
-omega step count = effect "song" (count + 1)
-
-
-{-@ 
-getReady a <> 
-requires emp 
-ensures  ((("Wait")^a).("Ready")) +  (("Wait")*)
-@-}
-getReady a = if a < 0 then (effect "Ready" (a)) else (effect "Wait" getReady (a-1))
-
-
 
 peoplecount :: Signal Int
 peoplecount = fold  (test) 0 (motion 0)  

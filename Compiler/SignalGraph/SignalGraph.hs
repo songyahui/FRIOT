@@ -14,15 +14,15 @@ getOutput astp =
     in case main_ !! 0 of 
         Definition "main" p l -> 
             case l of 
-                App "Rpi.bPlus" [List el]  -> el
+                App "bPlus" [List el]  -> el
                 otherwise -> []
         otherwise -> []
 
-getDef :: [Decl] -> String -> ([Pattern], Expr)
+getDef :: [Decl] -> String -> Decl --([Pattern], Expr)
 getDef (x:xs) name =
     case x of 
         Definition n pl e -> 
-            if name == n then (pl,e)
+            if name == n then Definition n pl e --(pl,e)
             else getDef xs name
         otherwise -> getDef xs name
 
@@ -35,16 +35,15 @@ find_type_anno (x:xs) name =
         otherwise -> find_type_anno xs name
 find_type_anno _ _ =  TString
 
-mothToExpr:: [Decl] -> Expr -> Expr
+ {-   mothToExpr:: [Decl] -> Expr -> Expr
 mothToExpr astp expr =
     case expr of 
-        
         Var name -> 
             let (pl, _expr) = getDef astp name 
             in mothToExpr astp _expr
         otherwise -> expr
         
-        
+    
 tranExpr :: Expr -> String -> [Decl] -> SignalNode
 tranExpr expr name astp=
     let _type = find_type_anno astp name
@@ -65,15 +64,24 @@ tranExpr expr name astp=
             let chileN = map (\e -> tranExpr e "unknown" astp) pl
             in FoldP name (mothToExpr astp meth) _type acc (head chileN)
 
-            
+   -}      
+   
+getNodeFromDef :: [Decl] -> Decl -> SignalNode 
+getNodeFromDef astp def = NoNode
+
+
+
 constructGraph :: [Decl] -> Expr -> SignalNode
 constructGraph astp expr = 
-    case expr of 
-        
-        App "lcd" (e1:e2:es) ->
-            IoN "lcd" TString e1 (tranExpr e2 "unknown" astp)
-        App "led" (e1:e2:es) ->
-            IoN "led" TBool  e1 (tranExpr e2 "unknown" astp)
+    let getNodeForOutput :: [Decl] -> String -> SignalNode
+        getNodeForOutput astp name = 
+            let def = getDef astp name 
+            in getNodeFromDef astp def
+    in case expr of 
+        App "lcd" (e1: (Var method) :es) ->
+            IoN "lcd" TString e1 (getNodeForOutput astp (( method))) -- (tranExpr e2 "unknown" astp)
+        App "led" (e1:(Var method):es) ->
+            IoN "led" TBool e1 (getNodeForOutput astp (( method)))   --(tranExpr e2 "unknown" astp)
 
         
 signalGraph ::  [Decl] -> SignalGraph
