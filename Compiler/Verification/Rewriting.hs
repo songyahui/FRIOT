@@ -77,6 +77,81 @@ printCondEff conEff =
         (con,eff) -> printCon con ++ "/\\" ++ printE eff
 
 
+checkRedundent con = 
+    let helper con1 con2 = 
+            case con2 of 
+                AndCon p1 p2 -> 
+                    if con1 == p1 || con1 == p2 then True
+                    else (helper con1 p1) && (helper con1 p2) 
+                other -> if con1 == other then True 
+                         else False
+    in case con of 
+        AndCon s1 s2 -> 
+            if s1 == s2 then s1
+            else if helper s1 s2 == True then checkRedundent s2
+            else AndCon s1 (checkRedundent s2)
+        otherwise -> con
+        
+         
+fixed :: (Eq a) =>a -> a -> Bool
+fixed a1 a2 =
+    if a1 == a2 then True else False
+
+normalCon :: Condition -> Condition
+normalCon con =
+    case con of 
+        AndCon a b ->
+            case (a, b) of 
+                (FALSE, _) -> FALSE
+                (_, FALSE) -> FALSE
+                (TRUE, a) -> normalCon a
+                (a, TRUE) -> normalCon a
+                (Gt s1 n1, Gt s2 n2) -> 
+                    if s1 /= s2 then con 
+                    else 
+                        if n1 > n2 then (Gt s1 n1) 
+                        else (Gt s1 n2)
+                (Gt s1 n1, Lt s2 n2) -> 
+                    if s1 /= s2 then con 
+                    else if n1 >= n2 then FALSE
+                         else con 
+                (Gt s1 n1, Eq s2 n2) -> 
+                    if s1 /= s2 then con 
+                    else if n1 >= n2 then FALSE
+                         else (Eq s2 n2) 
+                (Lt s1 n1, Gt s2 n2) -> 
+                    if s1 /= s2 then con 
+                    else if n2 >= n1 then FALSE
+                         else con
+                (Lt s1 n1, Lt s2 n2) -> 
+                    if s1 /= s2 then con 
+                    else if n2 > n1 then (Lt s1 n1) 
+                         else (Lt s1 n2) 
+                (Lt s1 n1, Eq s2 n2) -> 
+                    if s1 /= s2 then con 
+                    else if n2 >= n1 then FALSE
+                         else (Eq s2 n2) 
+                (Eq s1 n1, Gt s2 n2) -> 
+                    if s1 /= s2 then con 
+                    else if n2 >= n1 then FALSE
+                         else (Eq s1 n1)
+                (Eq s1 n1, Lt s2 n2) -> 
+                    if s1 /= s2 then con 
+                    else if n2 <= n1 then FALSE
+                         else (Eq s1 n1)
+                (Eq s1 n1, Eq s2 n2) -> 
+                    if s1 /= s2 then con 
+                    else if n2 /= n1 then FALSE
+                         else (Eq s1 n1)
+                (a, b) ->  
+                    let na = normalCon a
+                        nb = normalCon b
+                        checkR = checkRedundent  (AndCon na nb)
+                    in if fixed  checkR (normalCon checkR) then checkR
+                       else normalCon checkR
+                    
+        otherwise -> con
+
 printEntailCondEff :: ConditionalEff -> ConditionalEff -> String
 printEntailCondEff cf1 cf2 = 
     (printCondEff cf1) ++ " |- " ++ (printCondEff cf2)
@@ -84,23 +159,6 @@ printEntailCondEff cf1 cf2 =
 type ConditionalEff = (Condition, Effect)
 type Env =  [(ConditionalEff, ConditionalEff)] 
 
-
-nullable :: ConditionalEff -> Bool
-nullable (cond, effect) = 
-    case effect of 
-        Bottom -> False
-        Empty -> True
-        Singleton _ -> False
-        Dot e1 e2 -> nullable (cond, e1) && nullable (cond, e2)
-        OR e1 e2 -> nullable (cond, e1) || nullable (cond, e2)
-        Omega _ -> False
-        Ttimes eff sv -> 
-            case (cond, sv) of 
-                (Eq str1 num, Iden str2) -> 
-                    if str1 == str2 then False 
-                    else True
-                (AndCon con1 con2, _) -> nullable (con1, effect) && nullable (con2, effect)
-                otherwise -> True
 
 inf :: Effect -> Bool
 inf effect = 
@@ -208,14 +266,76 @@ derivatives (cond, effect) head =
         Omega e -> normal (Dot (derivatives (cond, e) head) effect )
         Ttimes eff sv -> Dot (normal (derivatives (cond, eff) head)) (Ttimes eff (computeSV( Minus sv (Value 1))))
 
+derivT :: ConditionalEff -> Effect -> Effect
+derivT (cond, effect) head = 
+    case normal effect of 
+        Bottom -> Bottom
+        Empty -> Bottom
+        Singleton a -> Bottom
+        Dot e1 e2 -> 
+            if nullable (cond, e1) then normal $ OR (normal $ Dot (derivT (cond, e1) head)  e2) (derivT (cond, e2) head)
+            else 
+                normal $ Dot (derivT (cond, e1) head) e2
+        OR e1 e2 -> OR (derivT (cond, e1) head) (derivT (cond, e2) head)
+        Omega e -> normal (Dot (derivT (cond, e) head) effect )
+        Ttimes eff sv -> 
+            if Ttimes eff sv == head then Empty
+            else Bottom
 
+unifyCondition :: ConditionalEff -> Effect
+unifyCondition (condition , effect) =
+    let rewriteSV str num sv = 
+            case sv of 
+                Iden id -> if id == str then Value num else  sv  
+                Value n -> sv
+                Add sv1 sv2 -> computeSV ( Add (rewriteSV str num sv1) (rewriteSV str num sv2))
+                Minus sv1 sv2 -> computeSV ( Minus (rewriteSV str num sv1) (rewriteSV str num sv2))
+                Div sv1 sv2 -> computeSV ( Div (rewriteSV str num sv1) (rewriteSV str num sv2))
+                Mul sv1 sv2 -> computeSV ( Mul (rewriteSV str num sv1) (rewriteSV str num sv2))
+        rewriteEff :: String -> Int -> Effect -> Effect
+        rewriteEff str num eff = 
+            case eff of
+                Ttimes effin sv -> normal (Ttimes effin (rewriteSV str num sv))
+                Dot e1 e2 -> Dot (rewriteEff str num  e1) (rewriteEff  str num e2)
+                OR e1 e2 -> OR (rewriteEff str num  e1) (rewriteEff str num  e2)
+                otherwise ->eff
+        rewriteEq :: Condition -> Effect -> Effect
+        rewriteEq con eff =
+            case con of 
+                Eq str value -> rewriteEff str value eff
+                AndCon c1 c2 -> rewriteEq c1 (rewriteEq c2 eff)
+                otherwise -> eff
+    in  (rewriteEq condition effect)
+
+head_is_Ttimes :: ConditionalEff -> ConditionalEff -> Effect-> Env -> [(Tree String ,Bool)]
+head_is_Ttimes (cfL) cfR head env = 
+    let (condL, effL) = cfL
+        (condR, effR) = cfR
+        Ttimes eff sv = head
+    in case sv of 
+        Iden id -> 
+            let cond0 = Eq id 0
+                cond0L = checkRedundent $ normalCon (AndCon cond0 condL)
+                cond0R = checkRedundent $ normalCon (AndCon cond0 condL)
+                unified0L = unifyCondition (cond0L, effL)
+                unified0R = unifyCondition (cond0R, effR)
+
+
+                --condS = Gt id 0
+                
+                --condSL = normalCon (AndCon condS condL)
+                --condSR = normalCon (AndCon condS condR)
+                
+
+            in [entailConditionalEff (cond0L, normal unified0L)(cond0R, normal unified0R) env] 
+            -- ++[entailConditionalEff (condSL, (derivT cfL h))(cond0R, (condSR cfR h)) env]
+            
 
 unfold :: ConditionalEff -> ConditionalEff -> Env -> (Tree String ,Bool)
 unfold cfL cfR env= 
     let (condL, effL) = cfL
         (condR, effR) = cfR
         heads = first cfL
-        --
         nonTimesHeads = filter (\h -> case h of 
             Ttimes _ _ ->  False
             otherwise -> True) heads
@@ -223,39 +343,61 @@ unfold cfL cfR env=
                 (condL, (derivatives cfL h))
                 (condR, (derivatives cfR h))
                 env) nonTimesHeads
+        --resultTimesL = foldr (\h acc -> acc ++ (head_is_Time cfL cfR h env)  ) []  timesHeads
         (trees, result) = foldr (\(tree, re) (accT, accR)-> (accT++[tree], accR && accR) ) ([], True) resultL
     in (Node (printEntailEFF (normal effL) (normal effR)) trees, result)
 
-first :: ConditionalEff -> [Effect]
-first (cond, effect) = 
-    case effect of 
-        Bottom -> []
-        Empty -> []
-        Singleton ev -> [effect]
-        Dot e1 e2 -> 
-            if nullable (cond, e1) then union (first (cond, e1)) (first (cond, e2)) 
-            else first (cond, e1)
-        OR e1 e2 -> union (first (cond, e1)) (first (cond, e2))  
-        Omega r -> first (cond, r)
-        Ttimes eff sv -> [Ttimes eff sv] 
+first :: Effect -> Effect  -- a^t.b -> (a^t)
+first eff = 
+    case eff of 
+        Omega r -> first r
+        Dot h rest -> first h
+        Ttimes _ _ -> eff
+        Bottom -> eff
+        Empty -> eff
+        Singleton ev -> eff
+        
 
+-- left hand side will not be a OR
 entailConditionalEff:: ConditionalEff -> ConditionalEff -> Env -> (Tree String ,Bool)
-entailConditionalEff cfL cfR env=
+entailConditionalEff cfL cfR env = 
     let (condL, effL) = cfL
         (condR, effR) = cfR
+        head = first effL
     in if (inf effL) == False && (inf effR) == True then
-            (Node ((printEntailEFF (normal effL) (normal effR)) ++ " [Disprove-Inf]") [], False) 
-       else if (nullable cfL) == True && (nullable cfR) == False then
-            (Node ((printEntailEFF (normal effL) (normal effR)) ++ " [Disprove-Emp]") [], False) 
-       else if effR == Empty && effL /= Empty then (Node ((printEntailEFF (normal effL) (normal effR)) ++ " [Residue: " ++ printE effL ++"]" ) [], True)
-       else if (cfL,cfR) `elem` env then (Node ((printEntailEFF (normal effL) (normal effR) ) ++" [In context!]" ) [], True)
-       else let env' = env ++ [(cfL, cfR)]
-            in unfold cfL cfR env'
-           
+        (Node ((printEntailCondEff cfL cfR) ++ " [Disprove-Inf]") [], False) 
+       else if effR == Empty && effL /= Empty then (Node ((printEntailCondEff cfL cfR) ++ " [Residue: " ++ printE effL ++"]" ) [], True)
+       else if (cfL,cfR) `elem` env then (Node ((printEntailCondEff cfL cfR ) ++" [In context!]" ) [], True)
+       else case head of
+        Ttimes _ _ -> (Node "test" [], True)
+        otherwise -> let env' = env ++ [(cfL, cfR)]
+                     in unfold cfL cfR env'
+
+-- splitOrEffects is used to split all the OR effects
+splitOrEffects :: ConditionalEff -> [ConditionalEff]
+splitOrEffects (cond, effect) =
+    case effect of 
+        OR e1 e2 -> splitOrEffects (cond, e1) ++ splitOrEffects (cond, e2)
+        otherwise -> [(cond, effect)]
+
+-- 1. splitOrEffects left hand side
+-- 2. for each of the left hand side effect, check entailment 
+entialShell :: ConditionalEff -> ConditionalEff -> Env -> (Tree String ,Bool)
+entialShell cfL cfR env= 
+    let cfL_List = splitOrEffects cfL
+        (nodes, result) = foldr 
+            (\l (accT, accR) -> 
+                let (node, result ) = entailConditionalEff l cfR env
+                in (accT++[node], result || accR) 
+            )  
+            ([], True) 
+            cfL_List
+    in (Node (printEntailCondEff cfL cfR) nodes, result)
+
 
 report :: ConditionalEff -> ConditionalEff  -> IO()
 report cfL cfR = 
-    let (tree, result) =  entailConditionalEff cfL cfR []
+    let (tree, result) =  entialShell cfL cfR []
     in case result of 
         True -> 
             do {
