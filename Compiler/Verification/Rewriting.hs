@@ -1,10 +1,12 @@
 module Verification.Rewriting where
 import Data.Tree
+import Data.List
 
 type ErrorMsg = String
 
 data Result a = 
     OK (Tree String)
+    | Residue (Tree String) Effect
     | Error (Tree String) a
     deriving (Show, Eq)
 
@@ -189,35 +191,83 @@ normal effect =
                 otherwise -> effect
                 
         otherwise -> effect
-        
 
-entailConditionalEff:: ConditionalEff -> ConditionalEff -> Env -> Result ErrorMsg
+derivatives :: ConditionalEff -> Effect -> Effect
+derivatives (cond, effect) head = 
+    case normal effect of 
+        Bottom -> Bottom
+        Empty -> Bottom
+        Singleton a -> 
+            if (head) ==  Singleton a then Empty 
+            else Bottom
+        Dot e1 e2 -> 
+            if nullable (cond, e1) then normal $ OR (normal $ Dot (derivatives (cond, e1) head)  e2) (derivatives (cond, e2) head)
+            else 
+                normal $ Dot (derivatives (cond, e1) head) e2
+        OR e1 e2 -> OR (derivatives (cond, e1) head) (derivatives (cond, e2) head)
+        Omega e -> normal (Dot (derivatives (cond, e) head) effect )
+        Ttimes eff sv -> Dot (normal (derivatives (cond, eff) head)) (Ttimes eff (computeSV( Minus sv (Value 1))))
+
+
+
+unfold :: ConditionalEff -> ConditionalEff -> Env -> (Tree String ,Bool)
+unfold cfL cfR env= 
+    let (condL, effL) = cfL
+        (condR, effR) = cfR
+        heads = first cfL
+        --
+        nonTimesHeads = filter (\h -> case h of 
+            Ttimes _ _ ->  False
+            otherwise -> True) heads
+        resultL = map (\h -> entailConditionalEff 
+                (condL, (derivatives cfL h))
+                (condR, (derivatives cfR h))
+                env) nonTimesHeads
+        (trees, result) = foldr (\(tree, re) (accT, accR)-> (accT++[tree], accR && accR) ) ([], True) resultL
+    in (Node (printEntailEFF (normal effL) (normal effR)) trees, result)
+
+first :: ConditionalEff -> [Effect]
+first (cond, effect) = 
+    case effect of 
+        Bottom -> []
+        Empty -> []
+        Singleton ev -> [effect]
+        Dot e1 e2 -> 
+            if nullable (cond, e1) then union (first (cond, e1)) (first (cond, e2)) 
+            else first (cond, e1)
+        OR e1 e2 -> union (first (cond, e1)) (first (cond, e2))  
+        Omega r -> first (cond, r)
+        Ttimes eff sv -> [Ttimes eff sv] 
+
+entailConditionalEff:: ConditionalEff -> ConditionalEff -> Env -> (Tree String ,Bool)
 entailConditionalEff cfL cfR env=
     let (condL, effL) = cfL
         (condR, effR) = cfR
     in if (inf effL) == False && (inf effR) == True then
-            Error (Node ((printEntailEFF (normal effL) (normal effL) )) []) "[Disprove2!!!]"
+            (Node ((printEntailEFF (normal effL) (normal effR)) ++ " [Disprove-Inf]") [], False) 
        else if (nullable cfL) == True && (nullable cfR) == False then
-            Error (Node ((printEntailEFF (normal effL) (normal effL) )) []) "[Disprove1!!!]"
-       else if (cfL,cfR) `elem` env then OK (Node "test" [])
-       else OK (Node "test" [])
+            (Node ((printEntailEFF (normal effL) (normal effR)) ++ " [Disprove-Emp]") [], False) 
+       else if effR == Empty && effL /= Empty then (Node ((printEntailEFF (normal effL) (normal effR)) ++ " [Residue: " ++ printE effL ++"]" ) [], True)
+       else if (cfL,cfR) `elem` env then (Node ((printEntailEFF (normal effL) (normal effR) ) ++" [In context!]" ) [], True)
+       else let env' = env ++ [(cfL, cfR)]
+            in unfold cfL cfR env'
+           
 
-
-report :: ConditionalEff -> ConditionalEff -> Env  -> IO()
-report cfL cfR env = 
-    let result =  entailConditionalEff cfL cfR env
+report :: ConditionalEff -> ConditionalEff  -> IO()
+report cfL cfR = 
+    let (tree, result) =  entailConditionalEff cfL cfR []
     in case result of 
-        OK tree -> 
+        True -> 
             do {
                 putStrLn ("============= Report =============");
                 putStrLn ("GOAL: " ++ printEntailCondEff cfL cfR);
                 putStrLn "Succeed!" ;
                 putStrLn $ drawTree tree
             }
-        Error tree msg -> 
+        False -> 
             do {
                 putStrLn ("============= Report =============");
                 putStrLn ("GOAL: " ++ printEntailCondEff cfL cfR);
-                putStrLn ("Failed: " ++ msg) ;
+                putStrLn ("Failed" ) ;
                 putStrLn $ drawTree tree
             }
