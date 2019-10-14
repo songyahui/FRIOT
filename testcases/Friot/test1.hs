@@ -1,9 +1,25 @@
 
-import Prelude hiding (show)
+import Prelude 
+
+
 import Basic
 import Env
 import Time
 import Rpi
+
+
+showTemp :: Int -> Int -> String
+showTemp t temp = 
+    if t == 0 then ev "Ready" (show temp)
+    else ev "Wait" (showTemp (t -1) temp)
+    
+
+ledControl :: Int -> Bool
+ledControl time = 
+    if time > 8 && time < 20 then ev "OFF" False
+    else ev "On" True
+
+
 
 
 

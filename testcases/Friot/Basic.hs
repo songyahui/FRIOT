@@ -2,6 +2,9 @@ module Basic where
 
 data Signal a = Signal a
 
+ev:: String -> b -> b
+ev name re = re
+
 effect :: String -> a -> a
 effect str a = a 
 
