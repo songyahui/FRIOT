@@ -46,7 +46,8 @@ type pure = TRUE
 type effect = Effect of pure * es
           | Disj of effect * effect
 
-type context = Delta of effect list
+
+type context =  (effect * effect) list
 
 (*----------------------------------------------------
 ----------------------PRINTING------------------------
@@ -87,18 +88,19 @@ let rec showEffect e =
   | Disj (es1, es2) -> showEffect es1 ^ "\\/"  ^ showEffect es2
   ;;
 
-let showEntailment es1 es2 = showEffect es1 ^ " |- "  ^ showEffect es2
+let showEntailment eff1 eff2 = showEffect eff1 ^ " |- "  ^ showEffect eff2
 
-let rec showContext d = 
+
+let rec showContext (d:context) = 
   match d with
-    Delta [] -> ""
-  | Delta (eff1::rest) -> showEffect eff1 ^ ("\n") ^ showContext (Delta rest)
+    [] -> ""
+  | (eff1, eff2)::rest -> (showEntailment eff1 eff2 )^ ("\n") ^ showContext rest
   ;;
 
 
 
 (*----------------------------------------------------
-----------------------CONTAINMENT--------------------
+------------------Utility Functions------------------
 ----------------------------------------------------*)
 exception Foo of string
 
@@ -162,9 +164,9 @@ let rec getZ3ConstrainFromPure pi ctx acc=
 ;;
 
 let askZ3 pi = 
-  let context = Z3.mk_context [] in
-  let constrains = getZ3ConstrainFromPure pi context [] in
-  let solver = Z3.Solver.mk_solver context None in
+  let z3_context = Z3.mk_context [] in
+  let constrains = getZ3ConstrainFromPure pi z3_context [] in
+  let solver = Z3.Solver.mk_solver z3_context None in
   let () = Z3.Solver.add solver constrains in
     match Z3.Solver.check solver [] with
     | UNSATISFIABLE -> 
@@ -234,7 +236,7 @@ let rec nullable eff =
     
 let rec fst es = 
   match es with 
-    Event ev -> Event ev
+    Event ev ->  ev
   | Omega es1 -> fst es1
   | Ttimes (es1, t) -> fst es1
   | Cons (es1 , es2) -> fst es1
@@ -275,17 +277,84 @@ let rec derivative eff ev =
   | Disj (eff1, eff2) -> Disj (derivative eff1 ev, derivative eff2 ev)
   ;;
 
+
+(*----------------------------------------------------
+----------------------CONTAINMENT--------------------
+----------------------------------------------------*)
+
+let rec reoccur effL effR delta  = 
+  match delta with 
+  | [] -> false
+  | (eff1, eff2) :: rest -> 
+      if eff1 == effL && eff2 == effR then true 
+      else reoccur effL effR rest
+  ;;
+
+let rec addConstrain effect addPi =
+  match effect with
+    Effect (pi, eff) -> Effect (PureAnd (pi, addPi), eff)
+  | Disj (effL1, effL2) -> Disj (addConstrain effL1 addPi, addConstrain effL2 addPi)
+  ;;
+  
+
+let rec containment (effL:effect) (effR:effect) (delta:context)= 
+  let unfold esL delta effL effR normalFormL normalFormR= 
+    (let fstL = fst esL in 
+    let deltaNew = append delta [(effL, effR)] in
+    let derivL = derivative normalFormL fstL in
+    let derivR = derivative normalFormR fstL in
+    containment derivL derivR deltaNew  )
+  in 
+  let normalFormL = normalEffect effL in 
+  let normalFormR = normalEffect effR in
+  match normalFormL with
+    Effect (piL, esL) -> 
+      if (nullable normalFormL) == true && (nullable normalFormR) == false then false (*"Disprove-Emp"*)
+      else 
+        (match normalFormR with 
+          Effect (piR, Emp) ->  if (askZ3 (PureAnd (piL, piR))) == true then true (*"Prove-Frame"*)
+                                else false (*"Disprove-Frame"*)
+        |  _ -> 
+          if (reoccur normalFormL normalFormR  delta) == true then true (*"reoccur", TODO maybe put subtitution here as well*) 
+          else (match esL with
+                  Ttimes (esIn, termIn) -> 
+                    (match  askZ3 (PureAnd (piL, Eq (termIn, 0) )) with 
+                      true -> (*CASE SPLIT*) 
+                        let zeroCase = PureAnd (piL, Eq (termIn, 0) ) in 
+                        let nonZeroCase = PureAnd (piL, Gt (termIn, 0) ) in 
+                        let leftZero = addConstrain normalFormL zeroCase in
+                        let rightZero = addConstrain normalFormR zeroCase in
+                        let leftNonZero = addConstrain normalFormL nonZeroCase in
+                        let rightNonZero = addConstrain normalFormR nonZeroCase in
+                        (containment leftZero rightZero delta) || (containment leftNonZero rightNonZero delta)
+                    | false -> unfold esL delta effL effR normalFormL normalFormR
+                    )
+                | _ -> unfold esL delta effL effR normalFormL normalFormR
+                )
+                
+        ;)       
+  | Disj (effL1, effL2) -> (containment effL1 effR delta) && (containment effL2 effR delta)
+  ;;
+  
+  
+        
+  
+
+
 (*----------------------------------------------------
 ----------------------TESTING-------------------------
 ----------------------------------------------------*)
 
 let ttest = (Plus ((Var "song"),1));;
 let ttest1 = (Var "t");;
-let estest = Cons (Ttimes ((Event "a"), Var "t"),  (Event "a"));;
+let estest = ESOr (Cons (Ttimes ((Event "a"), Var "t"),  (Event "a")), Cons ((Event "a"),(Event "b")));;
 let puretest =  Eq (ttest1, 0);;
 let testes = Effect (puretest, estest);; 
-let testcontext = Delta [testes; testes];;
+let testcontext =  [testes; testes];;
 let testD = derivative testes ( "a");;
+let leftEff = Effect (TRUE, Omega (Event "a")) ;;
+let rightEff = Effect (TRUE, Omega (Event "b")) ;;
+let check = containment leftEff rightEff [] ;;
 
 (*Printf.printf "%s" (showTerms  ttest);;
 Printf.printf "%s" (showES estest);;
@@ -296,6 +365,8 @@ Printf.printf "%s" (showEffect testes);;
 Printf.printf "%s" (showContext testcontext );;*)
 let a = askZ3 puretest ;;
 
-Printf.printf "%s" (showEffect (normalEffect testD));;
+Printf.printf "%b" check;;
+
+Printf.printf "%s" (showEntailment leftEff rightEff);;
 
 Printf.printf "%s" ("\n");;
