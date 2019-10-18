@@ -15,6 +15,7 @@ open Z3.Arithmetic.Integer
 open Z3.Arithmetic.Real
 open Z3.BitVector
 open List
+open Tree
 
 
 (*----------------------------------------------------
@@ -526,6 +527,8 @@ let lhsss = Effect (TRUE, Cons (Ttimes ((Event "a"), Var "t"), Event "c"));;
 let rhsss = Effect (TRUE, Omega ((Event "a")));;
 let check = containment  rhsss rhsss [] ;;
 
+
+
 (*Printf.printf "%s" (showTerms  ttest);;
 Printf.printf "%s" (showES estest);;
 
@@ -533,10 +536,22 @@ Printf.printf "%s" (showPure puretest);;
 
 Printf.printf "%s" (showEffect testes);;
 Printf.printf "%s" (showContext testcontext );;*)
-let a = askZ3 puretest ;;
 
-Printf.printf "%b" check;;
 
-Printf.printf "%s" (showEntailmentEff  rhsss rhsss);;
+let a = test ();;
+Printf.printf "%b\n" (true) ;;
 
-Printf.printf "%s" ("\n");;
+let exampleOne = 
+  let lhs = Effect(TRUE, Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
+  let rhs = Effect(TRUE, Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
+  let check = containment  lhs rhs [] in
+  
+  Printf.printf "%s\n" (showEntailmentEff lhs rhs) ;
+  Printf.printf "%b\n" (check) ;
+  ;
+
+(*
+true/\b.a.b^t |- true/\a.b^t.b
+true
+*)
+
