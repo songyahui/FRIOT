@@ -415,6 +415,10 @@ let rec substituteEff (effect:effect) (termOrigin:terms) (termNew:terms) =
   | Disj (eff1, eff2) -> Disj (substituteEff eff1 termOrigin termNew , substituteEff eff2 termOrigin termNew ) 
   ;;
 
+let isEmp effect = 
+  match effect with
+    Effect (_ , Emp) -> true
+  | _ -> false 
 
 let rec containment (effL:effect) (effR:effect) (delta:context)= 
   let unfold esL delta effL effR normalFormL normalFormR= 
@@ -426,9 +430,12 @@ let rec containment (effL:effect) (effR:effect) (delta:context)=
   in 
   let normalFormL = normalEffect effL in 
   let normalFormR = normalEffect effR in
+  
   match normalFormL with
     Effect (piL, esL) -> 
-      if (nullable normalFormL) == true && (nullable normalFormR) == false then false (*"Disprove-Emp"*)
+    
+      (*if (nullable normalFormL) == true && (nullable normalFormR) == false then false (*"Disprove-Emp"*)*)
+      if (isEmp normalFormL) == true && (isEmp normalFormR) == false then false (*"Disprove-Emp"*)
       else 
         (match normalFormR with 
           Effect (piR, Emp) ->  if entailConstrains piL piR then true (*"Prove-Frame"*)
@@ -439,19 +446,19 @@ let rec containment (effL:effect) (effR:effect) (delta:context)=
              (*"reoccur", TODO maybe put subtitution here as well*) 
           else (match esL with
                 | ESOr (es1, es2) -> (containment (Effect(piL, es1)) effR delta) && (containment (Effect(piL, es2)) effR delta)
-                | Cons (Ttimes (esIn, term), restES) -> 
+                | Ttimes (esIn, term) -> 
                     (match term with 
                       Var s -> 
                         (match  entailConstrains piL (Eq (Var s, 0) ) with 
                           true -> (*CASE SPLIT*) 
                             let zeroCase = PureAnd (piL, Eq (Var s, 0) ) in 
                             let nonZeroCase = PureAnd (piL, Gt (Var s, 0) ) in 
-                            let leftZero = addConstrain (Effect(piL, restES)) zeroCase in
+                            let leftZero = addConstrain (Effect(piL, Emp)) zeroCase in
                             let rightZero = addConstrain normalFormR zeroCase in
                             let leftNonZero = addConstrain normalFormL nonZeroCase in
                             let rightNonZero = addConstrain normalFormR nonZeroCase in
                             (containment leftZero rightZero delta) || (containment leftNonZero rightNonZero delta)
-                        | false -> unfold esL delta effL effR normalFormL normalFormR
+                        | false -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
                         )
                     | Plus  (Var t, num) -> 
                         let newVar = getAfreeVar delta in 
@@ -465,12 +472,40 @@ let rec containment (effL:effect) (effR:effect) (delta:context)=
                         containment lhs rhs delta
                     | _ -> raise ( Foo "term is too complicated exception!")
                     )
+                | Cons (Ttimes (esIn, term), restES) -> 
+                    (match term with 
+                      Var s -> 
+                        (match  entailConstrains piL (Eq (Var s, 0) ) with 
+                          true -> (*CASE SPLIT*) 
+                            let zeroCase = PureAnd (piL, Eq (Var s, 0) ) in 
+                            let nonZeroCase = PureAnd (piL, Gt (Var s, 0) ) in 
+                            let leftZero = addConstrain (Effect(piL, restES)) zeroCase in
+                            let rightZero = addConstrain normalFormR zeroCase in
+                            let leftNonZero = addConstrain normalFormL nonZeroCase in
+                            let rightNonZero = addConstrain normalFormR nonZeroCase in
+                            (containment leftZero rightZero delta) || (containment leftNonZero rightNonZero delta)
+                        | false -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
+                        )
+                    | Plus  (Var t, num) -> 
+                        let newVar = getAfreeVar delta in 
+                        let lhs = substituteEff normalFormL  (Plus  (Var t, num)) (Var newVar) in
+                        let rhs = substituteEff normalFormR  (Plus  (Var t, num)) (Var newVar) in
+
+                        containment lhs rhs delta
+                    | Minus (Var t, num) -> 
+                        let newVar = getAfreeVar delta in 
+                        let lhs = substituteEff normalFormL  (Minus  (Var t, num)) (Var newVar) in
+                        let rhs = substituteEff normalFormR  (Minus  (Var t, num)) (Var newVar) in
+                        containment lhs rhs delta
+                    | _ -> raise ( Foo "term is too complicated exception!")
+                    )
                 | _ -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
-                )
-                
+                ) 
         ;)       
+
   | Disj (effL1, effL2) -> (containment effL1 effR delta) && (containment effL2 effR delta)
   ;;
+  
 
 (*----------------------------------------------------
 ----------------------TESTING-------------------------
@@ -487,7 +522,9 @@ let leftEff = Effect (TRUE, ESOr (Omega (Event "a"), Omega (Event "b"))) ;;
 let rightEff = Effect (TRUE, Omega (Event "b")) ;;
 let leftEff1 = Effect (TRUE, Cons (Event "a", Cons (Event "b", Event "c"))) ;;
 let rightEff2 = Effect (TRUE, Cons (Event "a", Cons (Event "d", Event "c"))) ;;
-let check = containment  leftEff1 rightEff2 [] ;;
+let lhsss = Effect (TRUE, Cons (Ttimes ((Event "a"), Var "t"), Event "c"));;
+let rhsss = Effect (TRUE, Omega ((Event "a")));;
+let check = containment  rhsss rhsss [] ;;
 
 (*Printf.printf "%s" (showTerms  ttest);;
 Printf.printf "%s" (showES estest);;
@@ -500,6 +537,6 @@ let a = askZ3 puretest ;;
 
 Printf.printf "%b" check;;
 
-Printf.printf "%s" (showEntailmentEff  leftEff1 rightEff2);;
+Printf.printf "%s" (showEntailmentEff  rhsss rhsss);;
 
 Printf.printf "%s" ("\n");;
