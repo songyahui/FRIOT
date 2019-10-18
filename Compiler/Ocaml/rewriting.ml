@@ -88,13 +88,15 @@ let rec showEffect e =
   | Disj (es1, es2) -> showEffect es1 ^ "\\/"  ^ showEffect es2
   ;;
 
-let showEntailment eff1 eff2 = showEffect eff1 ^ " |- "  ^ showEffect eff2
+let showEntailmentEff eff1 eff2 = showEffect eff1 ^ " |- "  ^ showEffect eff2
+
+let showEntailmentES es1 es2 = showES es1 ^ " |- "  ^ showES es2
 
 
 let rec showContext (d:context) = 
   match d with
     [] -> ""
-  | (eff1, eff2)::rest -> (showEntailment eff1 eff2 )^ ("\n") ^ showContext rest
+  | (eff1, eff2)::rest -> (showEntailmentEff eff1 eff2 )^ ("\n") ^ showContext rest
   ;;
 
 
@@ -188,9 +190,11 @@ let rec normalES es =
   | Emp -> es
   | Event ev -> es
   | Cons (es1, es2) -> 
-      (match (normalES es1, es2) with 
+      let normalES1 = normalES es1 in
+      (match (normalES1, es2) with 
         (Emp, _) -> es2
       | (Bot, _) -> Bot
+      | (Omega _, _ ) -> normalES1
       | (normal_es1, _) -> Cons (normal_es1, normalES es2)
       ;)
   | ESOr (es1, es2) -> 
@@ -200,8 +204,16 @@ let rec normalES es =
       | (norml_es1, Bot) -> norml_es1
       | (norml_es1, norml_es2) -> ESOr (norml_es1, norml_es2)
       ;)
-  | Ttimes (es1, terms) -> normalES es1
-  | Omega es1 -> normalES es1
+  | Ttimes (es1, terms) -> 
+      let normalInside = normalES es1 in 
+      (match normalInside with
+        Emp -> Emp
+      | _ ->  Ttimes (normalInside, terms))
+  | Omega es1 -> 
+      let normalInside = normalES es1 in 
+      (match normalInside with
+        Emp -> Emp
+      | _ ->  Omega normalInside)
   ;;
 
 let rec normalEffect eff =
@@ -282,12 +294,55 @@ let rec derivative eff ev =
 ----------------------CONTAINMENT--------------------
 ----------------------------------------------------*)
 
+let rec compareTerm term1 term2 = 
+  match (term1, term2) with 
+    (Var s1, Var s2) -> true
+  | (Plus (tIn1, num1), Plus (tIn2, num2)) -> compareTerm tIn1 tIn2 && num1 == num2
+  | (Minus (tIn1, num1), Minus (tIn2, num2)) -> compareTerm tIn1 tIn2 && num1 == num2
+  | _ -> false 
+  ;;
+let rec stricTcompareTerm term1 term2 = 
+  match (term1, term2) with 
+    (Var s1, Var s2) -> String.compare s1 s2 == 0
+  | (Plus (tIn1, num1), Plus (tIn2, num2)) -> compareTerm tIn1 tIn2 && num1 == num2
+  | (Minus (tIn1, num1), Minus (tIn2, num2)) -> compareTerm tIn1 tIn2 && num1 == num2
+  | _ -> false 
+  ;;
+
+let rec compareES es1 es2 = 
+  match (es1, es2) with 
+    (Bot, Bot) -> true
+  | (Emp, Emp) -> true
+  | (Event s1, Event s2) -> s1 == s2
+  | (Cons (es1L, es1R), Cons (es2L, es2R)) -> (compareES es1L es2L) && (compareES es1R es2R)
+  | (ESOr (es1L, es1R), ESOr (es2L, es2R)) -> 
+      let one = ((compareES es1L es2L) && (compareES es1R es2R)) in
+      let two =  ((compareES es1L es2R) && (compareES es1R es2L)) in 
+      one || two
+  | (Omega esL, Omega esR) ->compareES esL esR
+  | (Ttimes (esL, termL), Ttimes (esR, termR)) -> 
+      let insideEq = (compareES esL esR) in
+      let termEq = compareTerm termL termR in
+      insideEq && termEq
+  | _ -> false
+;;
+
+let rec compareEff eff1 eff2 =
+  match (eff1, eff2) with
+    (Effect (pi1, es1), Effect (pi2, es2)) -> compareES es1 es2
+  | (Disj (eff11, eff12), Disj (eff21, eff22)) -> 
+      let one =  (compareEff eff11  eff21) && (compareEff eff12  eff22) in
+      let two =  (compareEff eff11  eff22) && (compareEff eff12  eff21 ) in
+      one || two
+  | _ -> false
+  ;;
+
 let rec reoccur effL effR delta  = 
   match delta with 
   | [] -> false
   | (eff1, eff2) :: rest -> 
-      if eff1 == effL && eff2 == effR then true 
-      else reoccur effL effR rest
+      if (compareEff effL eff1 && compareEff effR  eff2) then true 
+      else reoccur effL effR rest (*REOCCUR*) 
   ;;
 
 let rec addConstrain effect addPi =
@@ -295,7 +350,71 @@ let rec addConstrain effect addPi =
     Effect (pi, eff) -> Effect (PureAnd (pi, addPi), eff)
   | Disj (effL1, effL2) -> Disj (addConstrain effL1 addPi, addConstrain effL2 addPi)
   ;;
-  
+
+let entailConstrains pi1 pi2 = askZ3 (PureAnd (pi1, pi2)) ;;
+
+let rec getPureFromEffect effect = 
+  match effect with
+    Effect (pi, _) -> pi
+  | Disj (eff1, eff2) -> PureOr ((getPureFromEffect eff1), (getPureFromEffect eff2))
+  ;;
+
+let rec getAllVarFromES es = 
+  match es with
+  | Ttimes (_, Var s) -> [s]
+  | Ttimes (_, Plus (Var s, _ )) -> [s]
+  | Ttimes (_, Minus (Var s, _ )) -> [s]
+  | Cons (es1, es2) -> append (getAllVarFromES es1 ) (getAllVarFromES es2 ) 
+  | ESOr (es1, es2) -> append (getAllVarFromES es1 ) (getAllVarFromES es2 ) 
+  | Omega (esIn) -> getAllVarFromES esIn
+  | _ -> []
+  ;;
+
+let rec getAllVarFromEff effect = 
+  match effect with 
+    Effect (pi, es) -> getAllVarFromES es
+  | Disj (eff1, eff2) -> append (getAllVarFromEff eff1) (getAllVarFromEff eff2)
+  ;;
+
+let getAllVarFromDelta delta acc =  
+  match delta with 
+    [] -> acc
+  | (eff1, eff2)::rest -> append acc (append (getAllVarFromEff eff1 ) (getAllVarFromEff eff2 ) )
+  ;;
+
+let freeVar = ["a"; "b"; "c"; "d";"e";"f";"g";"h";"i"];;
+
+let rec exist li ele = 
+  match li with 
+    [] -> false 
+  | x :: xs -> if (String.compare x ele) == 0 then true else exist xs ele
+  ;;
+
+let rec getAfreeVar delta  =
+  let bounded = getAllVarFromDelta delta [] in
+  let rec findOne li = 
+    match li with 
+        [] -> raise ( Foo "freeVar list too small exception!")
+      | x :: xs -> if (exist bounded x) == true then findOne xs else x
+  in
+  findOne freeVar
+;;
+
+let rec substituteES es termOrigin termNew = 
+  match es with 
+  | Ttimes (es, term) -> if (stricTcompareTerm term termOrigin) == true then Ttimes (es, termNew) else es
+  | Cons (es1, es2) -> Cons (substituteES es1 termOrigin termNew ,substituteES es2 termOrigin termNew ) 
+  | ESOr (es1, es2) -> Cons (substituteES es1 termOrigin termNew ,substituteES es2 termOrigin termNew ) 
+  | Omega (es) -> Omega (substituteES es termOrigin termNew)
+  | _ -> es
+  ;;
+
+let rec substituteEff (effect:effect) (termOrigin:terms) (termNew:terms) = 
+  match effect with 
+    Effect (pi, es) -> Effect (pi, substituteES es termOrigin termNew) 
+  | Disj (eff1, eff2) -> Disj (substituteEff eff1 termOrigin termNew , substituteEff eff2 termOrigin termNew ) 
+  ;;
+
 
 let rec containment (effL:effect) (effR:effect) (delta:context)= 
   let unfold esL delta effL effR normalFormL normalFormR= 
@@ -312,34 +431,46 @@ let rec containment (effL:effect) (effR:effect) (delta:context)=
       if (nullable normalFormL) == true && (nullable normalFormR) == false then false (*"Disprove-Emp"*)
       else 
         (match normalFormR with 
-          Effect (piR, Emp) ->  if (askZ3 (PureAnd (piL, piR))) == true then true (*"Prove-Frame"*)
+          Effect (piR, Emp) ->  if entailConstrains piL piR then true (*"Prove-Frame"*)
                                 else false (*"Disprove-Frame"*)
         |  _ -> 
-          if (reoccur normalFormL normalFormR  delta) == true then true (*"reoccur", TODO maybe put subtitution here as well*) 
+          if (reoccur normalFormL normalFormR delta) == true 
+          then entailConstrains piL (getPureFromEffect normalFormR)
+             (*"reoccur", TODO maybe put subtitution here as well*) 
           else (match esL with
-                  Ttimes (esIn, termIn) -> 
-                    (match  askZ3 (PureAnd (piL, Eq (termIn, 0) )) with 
-                      true -> (*CASE SPLIT*) 
-                        let zeroCase = PureAnd (piL, Eq (termIn, 0) ) in 
-                        let nonZeroCase = PureAnd (piL, Gt (termIn, 0) ) in 
-                        let leftZero = addConstrain normalFormL zeroCase in
-                        let rightZero = addConstrain normalFormR zeroCase in
-                        let leftNonZero = addConstrain normalFormL nonZeroCase in
-                        let rightNonZero = addConstrain normalFormR nonZeroCase in
-                        (containment leftZero rightZero delta) || (containment leftNonZero rightNonZero delta)
-                    | false -> unfold esL delta effL effR normalFormL normalFormR
+                | ESOr (es1, es2) -> (containment (Effect(piL, es1)) effR delta) && (containment (Effect(piL, es2)) effR delta)
+                | Cons (Ttimes (esIn, term), restES) -> 
+                    (match term with 
+                      Var s -> 
+                        (match  entailConstrains piL (Eq (Var s, 0) ) with 
+                          true -> (*CASE SPLIT*) 
+                            let zeroCase = PureAnd (piL, Eq (Var s, 0) ) in 
+                            let nonZeroCase = PureAnd (piL, Gt (Var s, 0) ) in 
+                            let leftZero = addConstrain (Effect(piL, restES)) zeroCase in
+                            let rightZero = addConstrain normalFormR zeroCase in
+                            let leftNonZero = addConstrain normalFormL nonZeroCase in
+                            let rightNonZero = addConstrain normalFormR nonZeroCase in
+                            (containment leftZero rightZero delta) || (containment leftNonZero rightNonZero delta)
+                        | false -> unfold esL delta effL effR normalFormL normalFormR
+                        )
+                    | Plus  (Var t, num) -> 
+                        let newVar = getAfreeVar delta in 
+                        let lhs = substituteEff normalFormL  (Plus  (Var t, num)) (Var newVar) in
+                        let rhs = substituteEff normalFormR  (Plus  (Var t, num)) (Var newVar) in
+                        containment lhs rhs delta
+                    | Minus (Var t, num) -> 
+                        let newVar = getAfreeVar delta in 
+                        let lhs = substituteEff normalFormL  (Minus  (Var t, num)) (Var newVar) in
+                        let rhs = substituteEff normalFormR  (Minus  (Var t, num)) (Var newVar) in
+                        containment lhs rhs delta
+                    | _ -> raise ( Foo "term is too complicated exception!")
                     )
-                | _ -> unfold esL delta effL effR normalFormL normalFormR
+                | _ -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
                 )
                 
         ;)       
   | Disj (effL1, effL2) -> (containment effL1 effR delta) && (containment effL2 effR delta)
   ;;
-  
-  
-        
-  
-
 
 (*----------------------------------------------------
 ----------------------TESTING-------------------------
@@ -352,9 +483,11 @@ let puretest =  Eq (ttest1, 0);;
 let testes = Effect (puretest, estest);; 
 let testcontext =  [testes; testes];;
 let testD = derivative testes ( "a");;
-let leftEff = Effect (TRUE, Omega (Event "a")) ;;
+let leftEff = Effect (TRUE, ESOr (Omega (Event "a"), Omega (Event "b"))) ;;
 let rightEff = Effect (TRUE, Omega (Event "b")) ;;
-let check = containment leftEff rightEff [] ;;
+let leftEff1 = Effect (TRUE, Cons (Event "a", Cons (Event "b", Event "c"))) ;;
+let rightEff2 = Effect (TRUE, Cons (Event "a", Cons (Event "d", Event "c"))) ;;
+let check = containment  leftEff1 rightEff2 [] ;;
 
 (*Printf.printf "%s" (showTerms  ttest);;
 Printf.printf "%s" (showES estest);;
@@ -367,6 +500,6 @@ let a = askZ3 puretest ;;
 
 Printf.printf "%b" check;;
 
-Printf.printf "%s" (showEntailment leftEff rightEff);;
+Printf.printf "%s" (showEntailmentEff  leftEff1 rightEff2);;
 
 Printf.printf "%s" ("\n");;
