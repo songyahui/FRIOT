@@ -244,17 +244,19 @@ let rec nullable eff =
         | Ttimes (es1, t) -> askZ3 (PureAnd (p, Eq (t,0))) (*TODO: need to call the Z3*)
         | Omega es1 -> false
       )
-  | Disj (_, _) -> raise ( Foo "nullable exception!")
+  | Disj ( eff1 ,  eff2) ->  nullable eff1 || nullable eff2
+  (*raise ( Foo "nullable exception!")*)
   ;;
     
 let rec fst es = 
   match es with 
-    Event ev ->  ev
+    Bot -> []
+  | Emp -> []
+  | Event ev ->  [ev]
   | Omega es1 -> fst es1
   | Ttimes (es1, t) -> fst es1
-  | Cons (es1 , es2) -> fst es1
-  | Or
-  | _ -> raise ( Foo "fst exception!")
+  | Cons (es1 , es2) ->  fst es1
+  | ESOr (es1, es2) -> append (fst es1) (fst es2 )
   ;;
 
 let rec appendEff_ES eff es = 
@@ -424,41 +426,63 @@ let isEmp effect =
     Effect (_ , Emp) -> true
   | _ -> false 
 
+let isBot effect = 
+  match effect with
+    Effect (_ , Bot) -> true
+  | _ -> false 
+
+let getFst (a,b) = a ;;
+let getSnd (a,b) = b ;;
+
 let rec containment (effL:effect) (effR:effect) (delta:context) = 
-  let unfold esL delta effL effR normalFormL normalFormR= 
-    (let fstL = fst esL in 
-    let deltaNew = append delta [(effL, effR)] in
-    let derivL = derivative normalFormL fstL in
-    let derivR = derivative normalFormR fstL in
-    let (tree, result) = containment derivL derivR deltaNew in
-    (Node (showEntailmentEff effL effR ,tree ,Leaf ), result)
-    )
-  in 
   let normalFormL = normalEffect effL in 
   let normalFormR = normalEffect effR in
   let showEntail  = showEntailmentEff normalFormL normalFormR in 
+  let unfoldSingle ev normalFormL normalFormR del = 
+    let derivL = derivative normalFormL ev in
+    let derivR = derivative normalFormR ev in
+    let deltaNew = append del [(normalFormL, normalFormR)] in
+    let (tree, result) = containment derivL derivR deltaNew in
+    (Node (showEntailmentEff normalFormL normalFormR ^ "   [Fst = "^  ev ^ "]",[tree; Leaf] ), result)
+  in
+  let unfold esL del effL effR normalFormL normalFormR= 
+    
+    (let fstL = fst esL in 
+    let resultL = map (fun ev ->  (unfoldSingle ev normalFormL normalFormR del)) fstL in
+    let trees = map (fun tuple -> getFst tuple ) resultL in
+    let results = map (fun tuple -> getSnd tuple ) resultL in
+    let result = List.fold_right (&& ) results true in  
+    
+    (Node (showEntailmentEff effL effR ,trees ), result)
+    )
+    
+  in 
   
   match normalFormL with
     Effect (piL, esL) -> 
     
       (*if (nullable normalFormL) == true && (nullable normalFormR) == false then false (*"Disprove-Emp"*)*)
-      if (isEmp normalFormL) == true && (isEmp normalFormR) == false 
-      then (Node(showEntail ^ "   [Disprove-Emp]", Leaf,Leaf), false) (*"Disprove-Emp"*)
+      if (isBot normalFormL) == false && (isBot normalFormR) == true 
+      then (Node(showEntail ^ "   [Disprove-Bot]", [Leaf;Leaf]), false) (*"Disprove-Emp"*)
+      else if (isEmp normalFormL) == true && (isEmp normalFormR) == false 
+      then (Node(showEntail ^ "   [Disprove-Emp]", [Leaf;Leaf]), false) (*"Disprove-Emp"*)
       else 
         (match normalFormR with 
-          Effect (piR, Emp) ->  if entailConstrains piL piR then (Node(showEntail^"   [Prove-Frame]" ^" with R = "^(showES esL ), Leaf,Leaf),true) (*"Prove-Frame"*)
-                                else (Node(showEntail ^ "   [Frame-contra]", Leaf,Leaf),false) (*"Disprove-Frame"*)
+          Effect (piR, Emp) ->  if entailConstrains piL piR then (Node(showEntail^"   [Prove-Frame]" ^" with R = "^(showES esL ), [Leaf;Leaf]),true) (*"Prove-Frame"*)
+                                else (Node(showEntail ^ "   [Frame-contra]", [Leaf;Leaf]),false) (*"Disprove-Frame"*)
         |  _ -> 
           if (reoccur normalFormL normalFormR delta) == true 
-          then if entailConstrains piL (getPureFromEffect normalFormR)
-               then (Node(showEntail ^ "   [Prove-Reoccur]", Leaf,Leaf), true) 
-               else (Node(showEntail ^ "   [Reoccur-contra]", Leaf,Leaf), false) 
+          then 
+            if entailConstrains piL (getPureFromEffect normalFormR)
+               then (Node(showEntail ^ "   [Prove-Reoccur]", [Leaf;Leaf]), true) 
+               else (Node(showEntail ^ "   [Reoccur-contra]", [Leaf;Leaf]), false) 
              (*"reoccur", TODO maybe put subtitution here as well*) 
-          else (match esL with
+          else 
+              (match esL with
                 | ESOr (es1, es2) -> 
                   let (tree1, re1 ) = (containment (Effect(piL, es1)) effR delta ) in 
                   let (tree2, re2 ) = (containment (Effect(piL, es2)) effR delta) in 
-                  (Node (showEntailmentEff effL effR ,tree1 ,tree2 ), re1 && re2)
+                  (Node (showEntailmentEff effL effR ,[tree1; tree2] ), re1 && re2)
                 | Ttimes (esIn, term) -> 
                     (match term with 
                       Var s -> 
@@ -472,7 +496,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                             let rightNonZero = addConstrain normalFormR nonZeroCase in
                             let (tree1, re1 ) = (containment leftZero rightZero delta ) in
                             let (tree2, re2 ) = (containment leftNonZero rightNonZero delta ) in
-                            (Node (showEntailmentEff effL effR ,tree1 ,tree2 ), re1 && re2)
+                            (Node (showEntailmentEff effL effR ,[tree1; tree2] ), re1 && re2)
                         | false -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
                         )
                     | Plus  (Var t, num) -> 
@@ -488,6 +512,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                     | _ -> raise ( Foo "term is too complicated exception!")
                     )
                 | Cons (Ttimes (esIn, term), restES) -> 
+                
                     (match term with 
                       Var s -> 
                         (match  entailConstrains piL (Eq (Var s, 0) ) with 
@@ -500,7 +525,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                             let rightNonZero = addConstrain normalFormR nonZeroCase in
                             let (tree1, re1 ) = (containment leftZero rightZero delta ) in
                             let (tree2, re2 ) =  (containment leftNonZero rightNonZero delta ) in 
-                            (Node (showEntailmentEff effL effR ,tree1 ,tree2 ), re1 && re2)
+                            (Node (showEntailmentEff effL effR , [tree1; tree2] ), re1 && re2)
                         | false -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
                         )
                     | Plus  (Var t, num) -> 
@@ -523,7 +548,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
   | Disj (effL1, effL2) -> 
       let (tree1, re1 ) = (containment effL1 effR delta ) in
       let (tree2, re2 ) = (containment effL2 effR delta ) in
-      (Node (showEntailmentEff effL effR ,tree1 ,tree2 ), re1 && re2)
+      (Node (showEntailmentEff effL effR , [tree1; tree2] ), re1 && re2)
   ;;
   
 
@@ -544,8 +569,7 @@ let leftEff1 = Effect (TRUE, Cons (Event "a", Cons (Event "b", Event "c"))) ;;
 let rightEff2 = Effect (TRUE, Cons (Event "a", Cons (Event "d", Event "c"))) ;;
 let lhsss = Effect (TRUE, Cons (Ttimes ((Event "a"), Var "t"), Event "c"));;
 let rhsss = Effect (TRUE, Omega ((Event "a")));;
-let root = Node("root", Leaf,Leaf);;
-let check = containment rhsss rhsss [] ;;
+
 
 
 
@@ -580,6 +604,7 @@ let printReport lhs rhs =
  
   flush stdout;;
   ;;
+
 
 
 
@@ -620,8 +645,10 @@ let example6 =
   let lhs = Effect(TRUE, omegaA) in
   let rhs = Effect(TRUE, omegaaOrb) in
   printReport lhs rhs ;;
+  
 
-let example6 = 
+
+let example7 = 
   let lhs = Effect(TRUE, omegaaOrb) in
   let rhs = Effect(TRUE, omegaA) in
   printReport lhs rhs ;;

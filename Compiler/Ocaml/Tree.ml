@@ -45,69 +45,55 @@ let printTree ?line_prefix ~get_name ~get_children x =
   Buffer.contents buf
 
 type binary_tree =
-  | Node of string * binary_tree * binary_tree
+  | Node of string * (binary_tree  list )
   | Leaf
 
-let root = Node("root", Leaf,Leaf);;
+let root = Node("root", [Leaf;Leaf]);;
 
 let get_name = function
     | Leaf -> "."
-    | Node (name, _, _) -> name;;
+    | Node (name, li) -> name;;
 
 let get_children = function
     | Leaf -> []
-    | Node (_, a, b) -> List.filter ((<>) Leaf) [a; b];;
+    | Node (_, li) -> List.filter ((<>) Leaf) li;;
 
 let shared_node =
     Node (
       "hello",
-      Node ("world", Leaf, Leaf),
-      Node ("you", Leaf, Leaf)
+      [Node ("world", [Leaf; Leaf]);
+      Node ("you", [Leaf; Leaf]);
+      Node ("you", [Leaf; Leaf])]
     );;
 
 let tree =
     Node (
       "root",
-      Node (
+      [Node (
         "Mr. Poopypants",
-        Node (
+        [Node (
           "something something",
-          shared_node,
-          Leaf
-        ),
+          [shared_node;
+          Leaf]
+        );
         Node (
           "Ms. Poopypants",
-          Leaf,
-          Leaf
-        )
-      ),
-      Leaf
+          [Leaf;
+          Leaf]
+        )]
+      );
+      Leaf]
     );;
 
-    (*
+    
 let test () =
   
-  let result = printTree ~line_prefix:"* " ~get_name ~get_children root in
-  let expected_result = "\
-* root
-* ├── Mr. Poopypants
-* │   ├── something something
-* │   │   └── hello
-* │   │       ├── world
-* │   │       └── you
-* │   └── Ms. Poopypants
-* └── hello
-*     ├── world
-*     └── you
-"
+  let result = printTree ~line_prefix:"* " ~get_name ~get_children shared_node 
   in
-  None
-  ;;
-  (*
   print_string result;
   flush stdout;;
-  (*assert (result = expected_result);;*)*)
-  *)
+  (*assert (result = expected_result)*)
+
 
 
 
