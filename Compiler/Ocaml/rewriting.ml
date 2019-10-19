@@ -85,7 +85,9 @@ let rec showPure p =
 
 let rec showEffect e = 
   match e with
-    Effect (p, es) -> showPure p ^ "/\\" ^ showES es
+    Effect (p, es) -> 
+      if p == TRUE then showES es
+      else showPure p ^ "/\\" ^ showES es
   | Disj (es1, es2) -> showEffect es1 ^ "\\/"  ^ showEffect es2
   ;;
 
@@ -185,50 +187,7 @@ let askZ3 pi =
             Printf.printf "%s\n"
                 (Z3.Model.to_string model)*)
 
-let rec normalES es = 
-  match es with
-    Bot -> es
-  | Emp -> es
-  | Event ev -> es
-  | Cons (es1, es2) -> 
-      let normalES1 = normalES es1 in
-      (match (normalES1, es2) with 
-        (Emp, _) -> es2
-      | (Bot, _) -> Bot
-      | (Omega _, _ ) -> normalES1
-      | (normal_es1, _) -> Cons (normal_es1, normalES es2)
-      ;)
-  | ESOr (es1, es2) -> 
-      (match (normalES es1, normalES es2) with 
-        (Bot, Bot) -> Bot
-      | (Bot, norml_es2) -> norml_es2
-      | (norml_es1, Bot) -> norml_es1
-      | (norml_es1, norml_es2) -> ESOr (norml_es1, norml_es2)
-      ;)
-  | Ttimes (es1, terms) -> 
-      let normalInside = normalES es1 in 
-      (match normalInside with
-        Emp -> Emp
-      | _ ->  Ttimes (normalInside, terms))
-  | Omega es1 -> 
-      let normalInside = normalES es1 in 
-      (match normalInside with
-        Emp -> Emp
-      | _ ->  Omega normalInside)
-  ;;
 
-let rec normalEffect eff =
-  match eff with
-    Effect (p, es) -> 
-      if (askZ3 p) == false then Effect (FALSE,  Bot)
-      else if normalES es == Bot then Effect (p,  Bot)
-      else Effect (p , normalES es)
-  | Disj (eff1, eff2) -> 
-      match (normalEffect eff1, normalEffect eff2) with
-        (Effect (_,  Bot), _) -> normalEffect eff2
-      | (_, Effect (_,  Bot)) -> normalEffect eff1
-      | _ -> Disj (normalEffect eff1, normalEffect eff2)
-  ;;
 
 
 let rec nullable eff =
@@ -307,6 +266,9 @@ let rec compareTerm term1 term2 =
   | (Minus (tIn1, num1), Minus (tIn2, num2)) -> compareTerm tIn1 tIn2 && num1 == num2
   | _ -> false 
   ;;
+
+
+
 let rec stricTcompareTerm term1 term2 = 
   match (term1, term2) with 
     (Var s1, Var s2) -> String.compare s1 s2 == 0
@@ -314,6 +276,101 @@ let rec stricTcompareTerm term1 term2 =
   | (Minus (tIn1, num1), Minus (tIn2, num2)) -> compareTerm tIn1 tIn2 && num1 == num2
   | _ -> false 
   ;;
+
+let rec comparePure pi1 pi2 = 
+  match (pi1 , pi2) with 
+    (TRUE, TRUE) -> true
+  | (FALSE, FALSE) -> true 
+  | (Gt (t1, n1), Gt (t2, n2)) -> stricTcompareTerm t1 t2 && n1 == n2
+  | (Lt (t1, n1), Lt (t2, n2)) -> stricTcompareTerm t1 t2 && n1 == n2
+  | (Eq (t1, n1), Eq (t2, n2)) -> stricTcompareTerm t1 t2 && n1 == n2
+  | (PureOr (p1, p2), PureOr (p3, p4)) ->
+      (comparePure p1 p3 && comparePure p2 p4) || (comparePure p1 p4 && comparePure p2 p3)
+  | (PureAnd (p1, p2), PureAnd (p3, p4)) ->
+      (comparePure p1 p3 && comparePure p2 p4) || (comparePure p1 p4 && comparePure p2 p3)
+  | (Neg p1, Neg p2) -> comparePure p1 p2
+  | _ -> false
+  ;;
+
+let rec getAllPi piIn acc= 
+    (match piIn with 
+      PureAnd (pi1, pi2) -> append (getAllPi pi1 acc ) (getAllPi pi2 acc )
+    | _ -> append acc [piIn]
+    )
+    ;;
+
+let rec existPi pi li = 
+    (match li with 
+      [] -> false 
+    | x :: xs -> if comparePure pi x then true else existPi pi xs 
+    )
+    ;;
+
+let rec normalES es pi = 
+  match es with
+    Bot -> es
+  | Emp -> es
+  | Event ev -> es
+  | Cons (es1, es2) -> 
+      let normalES1 = normalES es1 pi in
+      (match (normalES1, es2) with 
+        (Emp, _) -> es2
+      | (Bot, _) -> Bot
+      | (Omega _, _ ) -> normalES1
+      | (normal_es1, _) -> Cons (normal_es1, normalES es2 pi)
+      ;)
+  | ESOr (es1, es2) -> 
+      (match (normalES es1 pi, normalES es2 pi) with 
+        (Bot, Bot) -> Bot
+      | (Bot, norml_es2) -> norml_es2
+      | (norml_es1, Bot) -> norml_es1
+      | (norml_es1, norml_es2) -> ESOr (norml_es1, norml_es2)
+      ;)
+  | Ttimes (es1, terms) -> 
+      let normalInside = normalES es1 pi in 
+      (match normalInside with
+        Emp -> Emp
+      | _ -> 
+        let allPi = getAllPi pi [] in
+        if existPi (Eq (terms, 0))  allPi then Emp else Ttimes (normalInside, terms))
+  | Omega es1 -> 
+      let normalInside = normalES es1 pi in 
+      (match normalInside with
+        Emp -> Emp
+      | _ ->  Omega normalInside)
+  ;;
+
+let rec normalPure pi = 
+  let allPi = getAllPi pi [] in
+  let rec clear_Pi pi li = 
+    (match li with 
+      [] -> [pi]
+    | x :: xs -> if existPi pi li then clear_Pi x xs else append [pi] (clear_Pi x xs)
+    )in 
+  let finalPi = clear_Pi TRUE allPi in
+  let rec connectPi li acc = 
+    (match li with 
+      [] -> acc 
+    | x :: xs -> PureAnd (x, (connectPi xs acc)) 
+    )
+  in if length finalPi == 0 then  TRUE
+     else connectPi (tl finalPi) (hd finalPi)
+  ;;
+
+let rec normalEffect eff =
+  match eff with
+    Effect (p, es) -> 
+      if (askZ3 p) == false then Effect (FALSE,  Bot)
+      else if normalES es p== Bot then Effect (normalPure p,  Bot)
+      else Effect (normalPure p , normalES es p)
+  | Disj (eff1, eff2) -> 
+      match (normalEffect eff1, normalEffect eff2) with
+        (Effect (_,  Bot), _) -> normalEffect eff2
+      | (_, Effect (_,  Bot)) -> normalEffect eff1
+      | _ -> Disj (normalEffect eff1, normalEffect eff2)
+  ;;
+
+
 
 let rec compareES es1 es2 = 
   match (es1, es2) with 
@@ -353,7 +410,7 @@ let rec reoccur effL effR delta  =
 
 let rec addConstrain effect addPi =
   match effect with
-    Effect (pi, eff) -> Effect (PureAnd (pi, addPi), eff)
+    Effect (pi, eff) -> Effect (normalPure (PureAnd (pi, addPi)), eff)
   | Disj (effL1, effL2) -> Disj (addConstrain effL1 addPi, addConstrain effL2 addPi)
   ;;
 
@@ -388,7 +445,7 @@ let getAllVarFromDelta delta acc =
   | (eff1, eff2)::rest -> append acc (append (getAllVarFromEff eff1 ) (getAllVarFromEff eff2 ) )
   ;;
 
-let freeVar = ["a"; "b"; "c"; "d";"e";"f";"g";"h";"i"];;
+let freeVar = ["t1"; "t2"; "t3"; "t4";"t5";"t6";"t7";"t8";"t9"];;
 
 let rec exist li ele = 
   match li with 
@@ -436,16 +493,16 @@ let getSnd (a,b) = b ;;
 
 let rec containment (effL:effect) (effR:effect) (delta:context) = 
   let normalFormL = normalEffect effL in 
-  let normalFormR = normalEffect effR in
+  let normalFormR = (*enForcePure normalFormL*) (normalEffect effR) in
   let showEntail  = showEntailmentEff normalFormL normalFormR in 
   let unfoldSingle ev normalFormL normalFormR del = 
     let derivL = derivative normalFormL ev in
     let derivR = derivative normalFormR ev in
     let deltaNew = append del [(normalFormL, normalFormR)] in
     let (tree, result) = containment derivL derivR deltaNew in
-    (Node (showEntailmentEff normalFormL normalFormR ^ "   [Fst = "^  ev ^ "]",[tree; Leaf] ), result)
+    (Node (showEntailmentEff normalFormL normalFormR ^ "   [Unfold with Fst = "^  ev ^ "]",[tree; Leaf] ), result)
   in
-  let unfold esL del effL effR normalFormL normalFormR= 
+  let unfold esL del effl effr normalFormL normalFormR= 
     
     (let fstL = fst esL in 
     let resultL = map (fun ev ->  (unfoldSingle ev normalFormL normalFormR del)) fstL in
@@ -453,7 +510,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
     let results = map (fun tuple -> getSnd tuple ) resultL in
     let result = List.fold_right (&& ) results true in  
     
-    (Node (showEntailmentEff effL effR ,trees ), result)
+    (Node (showEntailmentEff effl effr ,trees ), result)
     )
     
   in 
@@ -503,12 +560,14 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                         let newVar = getAfreeVar delta in 
                         let lhs = substituteEff normalFormL  (Plus  (Var t, num)) (Var newVar) in
                         let rhs = substituteEff normalFormR  (Plus  (Var t, num)) (Var newVar) in
-                        containment lhs rhs delta 
+                        let (tree, re) = containment lhs rhs delta in
+                        (Node (showEntailmentEff normalFormL normalFormR ,[tree] ), re)
                     | Minus (Var t, num) -> 
                         let newVar = getAfreeVar delta in 
                         let lhs = substituteEff normalFormL  (Minus  (Var t, num)) (Var newVar) in
                         let rhs = substituteEff normalFormR  (Minus  (Var t, num)) (Var newVar) in
-                        containment lhs rhs delta 
+                        let (tree, re) = containment lhs rhs delta in
+                        (Node (showEntailmentEff normalFormL normalFormR ,[tree] ), re)
                     | _ -> raise ( Foo "term is too complicated exception!")
                     )
                 | Cons (Ttimes (esIn, term), restES) -> 
@@ -588,11 +647,17 @@ let ab = Cons (a,b) ;;
 let bc = Cons (b,c) ;;
 let aOrb = ESOr (a, b) ;;
 let aOrc = ESOr (a, c) ;;
-let t_a = Ttimes (a, Var "t" );;
-let t_b = Ttimes (b, Var "t");;
 let ab_or_c = ESOr (ab, c) ;;
 let omegaA = Omega (a);;
 let omegaaOrb = Omega (aOrb);;
+
+let createT es = Ttimes (es, Var "t" );;
+
+let createS es = Ttimes (es, Var "s" );;
+
+let createT_1 es = Ttimes (es, Minus (Var "t", 1) );;
+
+let createS_1 es = Ttimes (es, Minus (Var "s", 1) );;
 
 let printReport lhs rhs =
   let (tree, re) = containment  lhs rhs [] in
@@ -605,12 +670,15 @@ let printReport lhs rhs =
   flush stdout;;
   ;;
 
-
+let example0 = 
+  let lhs = Effect(TRUE, Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
+  let rhs = Effect(TRUE, Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
+  printReport lhs rhs ;;
 
 
 let example1 = 
-  let lhs = Effect(TRUE, Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
-  let rhs = Effect(TRUE, Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
+  let lhs = Effect(Gt (Var "t", 0), Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
+  let rhs = Effect(Gt (Var "t", 0), Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
   printReport lhs rhs ;;
 
 let example2 = 
@@ -647,13 +715,42 @@ let example6 =
   printReport lhs rhs ;;
   
 
-
 let example7 = 
   let lhs = Effect(TRUE, omegaaOrb) in
   let rhs = Effect(TRUE, omegaA) in
   printReport lhs rhs ;;
 
+let example8 = 
+    let lhs = Effect(TRUE, createT a) in
+    let rhs = Effect(TRUE, createT a) in
+    printReport lhs rhs ;;
 
+let example9 = 
+    let lhs = Effect(TRUE, createT a) in
+    let rhs = Effect(TRUE, createT ab) in
+    printReport lhs rhs ;;
+
+let example10 = 
+    let lhs = Effect(TRUE, createT_1 a) in
+    let rhs = Effect(TRUE, createT_1 a) in
+    printReport lhs rhs ;;
+
+let example11 = 
+    let lhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
+    let rhs = Effect(TRUE, createT a) in
+    printReport lhs rhs ;;
+
+
+    (*THIS ONE IS WRONG!*)
+let example12 = 
+    let lhs = Effect(TRUE, Cons (createT a ,createS b)) in
+    let rhs = Effect(TRUE, Cons (createT a ,createS_1 b)) in
+    printReport lhs rhs ;;
+
+
+let testNormalPure = normalPure (PureAnd (TRUE, PureAnd (TRUE , PureAnd (Eq (Var "t",1), Eq (Var "t",1)))));;
+
+Printf.printf "\n[Result]  %s\n\n" (showPure testNormalPure)
 
 (*
 true/\b.a.b^t |- true/\a.b^t.b
