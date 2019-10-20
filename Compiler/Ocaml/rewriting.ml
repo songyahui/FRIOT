@@ -226,6 +226,7 @@ let rec appendEff_ES eff es =
   (*raise ( Foo "appendEff_ES exception!")*)
   ;;
 
+
 let rec derivative eff ev =
   match eff with
     Effect (p , es) -> 
@@ -240,7 +241,7 @@ let rec derivative eff ev =
         | Ttimes (es1, t) -> 
             let pi = PureAnd (Gt (t, 1), p) in
             let efF = derivative (Effect (pi, es1)) ev in 
-            let esT_minus1 = Ttimes (es1, Minus (t, 1)) in
+            let esT_minus1 = Ttimes (es1,  Minus (t, 1)) in
             appendEff_ES efF esT_minus1
         | Cons (es1 , es2) -> 
             if nullable (Effect (p,es1)) == true 
@@ -272,8 +273,8 @@ let rec compareTerm term1 term2 =
 let rec stricTcompareTerm term1 term2 = 
   match (term1, term2) with 
     (Var s1, Var s2) -> String.compare s1 s2 == 0
-  | (Plus (tIn1, num1), Plus (tIn2, num2)) -> compareTerm tIn1 tIn2 && num1 == num2
-  | (Minus (tIn1, num1), Minus (tIn2, num2)) -> compareTerm tIn1 tIn2 && num1 == num2
+  | (Plus (tIn1, num1), Plus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && num1 == num2
+  | (Minus (tIn1, num1), Minus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && num1 == num2
   | _ -> false 
   ;;
 
@@ -305,6 +306,8 @@ let rec existPi pi li =
     | x :: xs -> if comparePure pi x then true else existPi pi xs 
     )
     ;;
+
+
 
 let rec normalES es pi = 
   match es with
@@ -369,7 +372,6 @@ let rec normalEffect eff =
       | (_, Effect (_,  Bot)) -> normalEffect eff1
       | _ -> Disj (normalEffect eff1, normalEffect eff2)
   ;;
-
 
 
 let rec compareES es1 es2 = 
@@ -463,12 +465,20 @@ let rec getAfreeVar delta  =
   findOne freeVar
 ;;
 
+let rec pattermMatchingTerms terms pattern termNew= 
+  if (stricTcompareTerm terms pattern) ==  true then termNew 
+  else match terms with 
+        Plus (tp, num) -> Plus (pattermMatchingTerms tp pattern termNew, num)
+      | Minus (tp, num) -> Minus (pattermMatchingTerms tp pattern termNew, num)
+      | _ -> terms
+  ;;
+
 let rec substituteES es termOrigin termNew = 
   match es with 
-  | Ttimes (es, term) -> if (stricTcompareTerm term termOrigin) == true then Ttimes (es, termNew) else es
+  | Ttimes (es1, term) -> Ttimes (es1,  pattermMatchingTerms term termOrigin termNew)
   | Cons (es1, es2) -> Cons (substituteES es1 termOrigin termNew ,substituteES es2 termOrigin termNew ) 
   | ESOr (es1, es2) -> Cons (substituteES es1 termOrigin termNew ,substituteES es2 termOrigin termNew ) 
-  | Omega (es) -> Omega (substituteES es termOrigin termNew)
+  | Omega (es1) -> Omega (substituteES es1 termOrigin termNew)
   | _ -> es
   ;;
 
@@ -491,9 +501,20 @@ let isBot effect =
 let getFst (a,b) = a ;;
 let getSnd (a,b) = b ;;
 
+
+let rec enForcePure eff1 eff2 = 
+  match eff1 with 
+    Effect (pi1, es1) ->
+      (match eff2 with 
+        Effect (pi2, es2) -> Effect(PureAnd (pi1, pi2), es2)
+      | Disj (eff_1, eff_2) -> Disj (enForcePure eff1 eff_1, enForcePure eff1 eff_2)
+      ) 
+  | Disj (_,_) -> raise (Foo "enForcePure exception")
+  ;;
+
 let rec containment (effL:effect) (effR:effect) (delta:context) = 
   let normalFormL = normalEffect effL in 
-  let normalFormR = (*enForcePure normalFormL*) (normalEffect effR) in
+  let normalFormR = normalEffect (enForcePure normalFormL effR) in
   let showEntail  = showEntailmentEff normalFormL normalFormR in 
   let unfoldSingle ev normalFormL normalFormR del = 
     let derivL = derivative normalFormL ev in
@@ -659,6 +680,7 @@ let createT_1 es = Ttimes (es, Minus (Var "t", 1) );;
 
 let createS_1 es = Ttimes (es, Minus (Var "s", 1) );;
 
+
 let printReport lhs rhs =
   let (tree, re) = containment  lhs rhs [] in
   Printf.printf "\n%s\n" ("====================================");
@@ -678,7 +700,7 @@ let example0 =
 
 let example1 = 
   let lhs = Effect(Gt (Var "t", 0), Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
-  let rhs = Effect(Gt (Var "t", 0), Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
+  let rhs = Effect(TRUE, Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
   printReport lhs rhs ;;
 
 let example2 = 
@@ -730,6 +752,8 @@ let example9 =
     let rhs = Effect(TRUE, createT ab) in
     printReport lhs rhs ;;
 
+
+
 let example10 = 
     let lhs = Effect(TRUE, createT_1 a) in
     let rhs = Effect(TRUE, createT_1 a) in
@@ -740,13 +764,30 @@ let example11 =
     let rhs = Effect(TRUE, createT a) in
     printReport lhs rhs ;;
 
+let example12 = 
+    let lhs = Effect(TRUE, createT a) in 
+    let rhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
+    printReport lhs rhs ;;
+
+let example12 = 
+    let lhs = Effect(Gt(Var "t", 0), createT a) in 
+    let rhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
+    printReport lhs rhs ;;
+
+let example12 = 
+    let lhs = Effect(Gt(Var "t", 0), createT a) in 
+    let rhs = Effect(TRUE, createT_1 a) in
+    printReport lhs rhs ;;
 
     (*THIS ONE IS WRONG!*)
-let example12 = 
-    let lhs = Effect(TRUE, Cons (createT a ,createS b)) in
+let example13 = 
+    let lhs = Effect(Gt(Var "s", 0), Cons (createT a ,createS b)) in
     let rhs = Effect(TRUE, Cons (createT a ,createS_1 b)) in
     printReport lhs rhs ;;
 
+let testSTRICKCOMPAORE = stricTcompareTerm (Minus (Var "s", 1)) (Minus(Var "t", 1));;
+
+Printf.printf "\n%b\n" (testSTRICKCOMPAORE);;
 
 let testNormalPure = normalPure (PureAnd (TRUE, PureAnd (TRUE , PureAnd (Eq (Var "t",1), Eq (Var "t",1)))));;
 
