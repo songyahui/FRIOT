@@ -88,7 +88,7 @@ let rec showEffect e =
     Effect (p, es) -> 
       if p == TRUE then showES es
       else showPure p ^ "/\\" ^ showES es
-  | Disj (es1, es2) -> showEffect es1 ^ "\\/"  ^ showEffect es2
+  | Disj (es1, es2) -> "(" ^ showEffect es1 ^ ")\\/("  ^ showEffect es2^")"
   ;;
 
 let showEntailmentEff eff1 eff2 = showEffect eff1 ^ " |- "  ^ showEffect eff2
@@ -165,7 +165,12 @@ let rec getZ3ConstrainFromPure pi ctx acc=
       let assert1 = getZ3ConstrainFromPure piN ctx [] in
       let makenot = mk_not ctx (List.nth assert1 0)  in
       append acc [makenot]
-  | _ ->raise ( Foo "getZ3ConstrainFromPure exception!")
+  | PureOr (pi1,pi2) -> 
+      let assert1 = getZ3ConstrainFromPure pi1 ctx [] in
+      let assert2 = getZ3ConstrainFromPure pi2 ctx [] in
+      let makeOr = Boolean.mk_or ctx (append assert1 assert2) in
+      append acc [makeOr]
+
 ;;
 
 let askZ3 pi = 
@@ -514,7 +519,7 @@ let rec enForcePure eff1 eff2 =
 
 let rec containment (effL:effect) (effR:effect) (delta:context) = 
   let normalFormL = normalEffect effL in 
-  let normalFormR = normalEffect (enForcePure normalFormL effR) in
+  let normalFormR = normalEffect (*enForcePure normalFormL*) effR in
   let showEntail  = showEntailmentEff normalFormL normalFormR in 
   let unfoldSingle ev normalFormL normalFormR del = 
     let derivL = derivative normalFormL ev in
@@ -546,7 +551,11 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
       then (Node(showEntail ^ "   [Disprove-Emp]", [Leaf;Leaf]), false) (*"Disprove-Emp"*)
       else 
         (match normalFormR with 
-          Effect (piR, Emp) ->  if entailConstrains piL piR then (Node(showEntail^"   [Prove-Frame]" ^" with R = "^(showES esL ), [Leaf;Leaf]),true) (*"Prove-Frame"*)
+           Disj (effR1, effR2) -> 
+              let (tree1, re1 ) = (containment effL effR1 delta ) in
+              let (tree2, re2 ) = (containment effL effR2 delta ) in
+              (Node (showEntailmentEff effL effR , [tree1; tree2] ), re1 || re2)
+        |  Effect (piR, Emp) ->  if entailConstrains piL piR then (Node(showEntail^"   [Prove-Frame]" ^" with R = "^(showES esL ), [Leaf;Leaf]),true) (*"Prove-Frame"*)
                                 else (Node(showEntail ^ "   [Frame-contra]", [Leaf;Leaf]),false) (*"Disprove-Frame"*)
         |  _ -> 
           if (reoccur normalFormL normalFormR delta) == true 
@@ -770,7 +779,7 @@ let example12 =
     printReport lhs rhs ;;
 
 let example12 = 
-    let lhs = Effect(Gt(Var "t", 0), createT a) in 
+    let lhs = Effect(Gt(Var "t", -1), createT a) in 
     let rhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
     printReport lhs rhs ;;
 
@@ -784,6 +793,15 @@ let example13 =
     let lhs = Effect(Gt(Var "s", 0), Cons (createT a ,createS b)) in
     let rhs = Effect(TRUE, Cons (createT a ,createS_1 b)) in
     printReport lhs rhs ;;
+
+let deday = 
+  let eff0 = Effect (Gt (Var "t" ,-1), Event "a") in
+  let eff1 = Effect (Gt (Var "t" ,-1), Cons (Ttimes (Event "Tick", Var "t"), Event "Ready")) in 
+  let eff2 = Effect (Lt (Var "t" ,-1), Omega (Event "Tick")) in 
+  let eff3 = Effect (Gt (Var "t" ,-1), Omega (Event "Tick")) in 
+  let lhs = eff2 in 
+  let rhs = Disj (eff0, eff3) in
+  printReport lhs rhs ;;
 
 let testSTRICKCOMPAORE = stricTcompareTerm (Minus (Var "s", 1)) (Minus(Var "t", 1));;
 
