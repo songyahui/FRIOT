@@ -864,11 +864,16 @@ let example13 =
 
 
 *)
+
+let example11 = 
+  let lhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
+  let rhs = Effect(TRUE, createT a) in
+  printReport lhs rhs ;;
+  
 let deday = 
   let tick = (Event "Tick") in 
   let lightup = (Event "LightUp") in 
   let eff1 = Effect (Gt (Var "t" ,-1), Cons (Ttimes (tick, Var "t"), lightup)) in 
-  let eff2 = Effect (Lt (Var "t" ,0), Omega (tick)) in 
   let effect_delay = eff1 (*Disj (eff1, eff2)*) in
   let eff1_1 = Cons (Ttimes (tick, (Minus(Var "t",1))), lightup) in 
   let effIF = Effect (Eq (Var "t" ,0), lightup) in
