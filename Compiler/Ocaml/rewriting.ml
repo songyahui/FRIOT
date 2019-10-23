@@ -244,7 +244,7 @@ let rec derivative eff ev =
         | Omega es1 -> appendEff_ES (derivative (Effect (p, es1)) ev) es
         | ESOr (es1 , es2) -> Disj (derivative (Effect (p,es1)) ev, derivative (Effect (p,es2)) ev)
         | Ttimes (es1, t) -> 
-            let pi = PureAnd (Gt (t, 1), p) in
+            let pi = PureAnd (Gt (t, 0), p) in
             let efF = derivative (Effect (pi, es1)) ev in 
             let esT_minus1 = Ttimes (es1,  Minus (t, 1)) in
             appendEff_ES efF esT_minus1
@@ -518,8 +518,9 @@ let rec enForcePure eff1 eff2 =
   ;;
 
 let rec containment (effL:effect) (effR:effect) (delta:context) = 
+
   let normalFormL = normalEffect effL in 
-  let normalFormR = normalEffect (*enForcePure normalFormL*) effR in
+  let normalFormR = normalEffect (enForcePure normalFormL effR) in
   let showEntail  = showEntailmentEff normalFormL normalFormR in 
   let unfoldSingle ev normalFormL normalFormR del = 
     let derivL = derivative normalFormL ev in
@@ -543,7 +544,6 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
   
   match normalFormL with
     Effect (piL, esL) -> 
-    
       (*if (nullable normalFormL) == true && (nullable normalFormR) == false then false (*"Disprove-Emp"*)*)
       if (isBot normalFormL) == false && (isBot normalFormR) == true 
       then (Node(showEntail ^ "   [Disprove-Bot]", [Leaf;Leaf]), false) (*"Disprove-Emp"*)
@@ -557,7 +557,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
               (Node (showEntailmentEff effL effR , [tree1; tree2] ), re1 || re2)
         |  Effect (piR, Emp) ->  if entailConstrains piL piR then (Node(showEntail^"   [Prove-Frame]" ^" with R = "^(showES esL ), [Leaf;Leaf]),true) (*"Prove-Frame"*)
                                 else (Node(showEntail ^ "   [Frame-contra]", [Leaf;Leaf]),false) (*"Disprove-Frame"*)
-        |  _ -> 
+        |  Effect (piR, esR) -> 
           if (reoccur normalFormL normalFormR delta) == true 
           then 
             if entailConstrains piL (getPureFromEffect normalFormR)
@@ -630,8 +630,70 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                         containment lhs rhs delta 
                     | _ -> raise ( Foo "term is too complicated exception!")
                     )
-                | _ -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
-                ) 
+                | _ -> (*UNFOLD*)
+                  (match esR with
+                    Ttimes (esInR, termR) -> 
+                    (match termR with 
+                      Var s -> 
+                        (match  entailConstrains piR (Eq (Var s, 0) ) with 
+                          true -> (*CASE SPLIT*) 
+                            let zeroCase = PureAnd (piL, Eq (Var s, 0) ) in 
+                            let nonZeroCase = PureAnd (piL, Gt (Var s, 0) ) in 
+                            let leftZero = addConstrain normalFormL zeroCase in
+                            let rightZero = addConstrain (Effect(piR, Emp)) zeroCase in
+                            let leftNonZero = addConstrain normalFormL nonZeroCase in
+                            let rightNonZero = addConstrain normalFormR nonZeroCase in
+                            let (tree1, re1 ) = (containment leftZero rightZero delta ) in
+                            let (tree2, re2 ) = (containment leftNonZero rightNonZero delta ) in
+                            (Node (showEntailmentEff effL effR ,[tree1; tree2] ), re1 || re2)
+                        | false -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
+                        )
+                    | Plus  (Var t, num) -> 
+                        let newVar = getAfreeVar delta in 
+                        let lhs = substituteEff normalFormL  (Plus  (Var t, num)) (Var newVar) in
+                        let rhs = substituteEff normalFormR  (Plus  (Var t, num)) (Var newVar) in
+                        let (tree, re) = containment lhs rhs delta in
+                        (Node (showEntailmentEff normalFormL normalFormR ,[tree] ), re)
+                    | Minus (Var t, num) -> 
+                        let newVar = getAfreeVar delta in 
+                        let lhs = substituteEff normalFormL  (Minus  (Var t, num)) (Var newVar) in
+                        let rhs = substituteEff normalFormR  (Minus  (Var t, num)) (Var newVar) in
+                        let (tree, re) = containment lhs rhs delta in
+                        (Node (showEntailmentEff normalFormL normalFormR ,[tree] ), re)
+                    | _ -> raise ( Foo "term is too complicated exception!")
+                    )
+                  | Cons (Ttimes (esInR, termR), restESR) -> 
+                    (match termR with 
+                      Var s -> 
+                        (match  entailConstrains piL (Eq (Var s, 0) ) with 
+                          true -> (*CASE SPLIT*) 
+                            let zeroCase = PureAnd (piR, Eq (Var s, 0) ) in 
+                            let nonZeroCase = PureAnd (piR, Gt (Var s, 0) ) in 
+                            let leftZero = addConstrain normalFormL zeroCase in
+                            let rightZero = addConstrain (Effect(piR, restESR)) zeroCase in
+                            let leftNonZero = addConstrain normalFormL nonZeroCase in
+                            let rightNonZero = addConstrain normalFormR nonZeroCase in
+                            let (tree1, re1 ) = (containment leftZero rightZero delta ) in
+                            let (tree2, re2 ) =  (containment leftNonZero rightNonZero delta ) in 
+                            (Node (showEntailmentEff effL effR , [tree1; tree2] ), re1 || re2)
+                        | false -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
+                        )
+                    | Plus  (Var t, num) -> 
+                        let newVar = getAfreeVar delta in 
+                        let lhs = substituteEff normalFormL  (Plus  (Var t, num)) (Var newVar) in
+                        let rhs = substituteEff normalFormR  (Plus  (Var t, num)) (Var newVar) in
+
+                        containment lhs rhs delta 
+                    | Minus (Var t, num) -> 
+                        let newVar = getAfreeVar delta in 
+                        let lhs = substituteEff normalFormL  (Minus  (Var t, num)) (Var newVar) in
+                        let rhs = substituteEff normalFormR  (Minus  (Var t, num)) (Var newVar) in
+                        containment lhs rhs delta 
+                    | _ -> raise ( Foo "term is too complicated exception!")
+                    )
+                  | _ -> unfold esL delta effL effR normalFormL normalFormR
+                  )
+              ) 
         ;)       
 
   | Disj (effL1, effL2) -> 
@@ -700,6 +762,7 @@ let printReport lhs rhs =
  
   flush stdout;;
   ;;
+
 
 let example0 = 
   let lhs = Effect(TRUE, Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
@@ -794,23 +857,39 @@ let example13 =
     let rhs = Effect(TRUE, Cons (createT a ,createS_1 b)) in
     printReport lhs rhs ;;
 
+let example13 = 
+    let lhs = Effect(TRUE, omegaA) in
+    let rhs = Effect(TRUE, createT_1 a) in
+    printReport lhs rhs ;;
+
+
+
 let deday = 
-  let eff0 = Effect (Gt (Var "t" ,-1), Event "a") in
-  let eff1 = Effect (Gt (Var "t" ,-1), Cons (Ttimes (Event "Tick", Var "t"), Event "Ready")) in 
-  let eff2 = Effect (Lt (Var "t" ,-1), Omega (Event "Tick")) in 
-  let eff3 = Effect (Gt (Var "t" ,-1), Omega (Event "Tick")) in 
-  let lhs = eff2 in 
-  let rhs = Disj (eff0, eff3) in
+  let tick = (Event "Tick") in 
+  let lightup = (Event "LightUp") in 
+  let eff1 = Effect (Gt (Var "t" ,-1), Cons (Ttimes (tick, Var "t"), lightup)) in 
+  let eff2 = Effect (Lt (Var "t" ,0), Omega (tick)) in 
+  let effect_delay = eff1 (*Disj (eff1, eff2)*) in
+  let eff1_1 = Cons (Ttimes (tick, (Minus(Var "t",1))), lightup) in 
+  let effIF = Effect (Eq (Var "t" ,0), lightup) in
+  let elseF1 = Effect (PureOr(Gt (Var "t" ,0),Lt (Var "t" ,0)), Cons(tick, eff1_1)) in
+  let elseF2 = Effect(PureOr(Gt (Var "t" ,0),Lt (Var "t" ,0)) , Cons (tick,Omega (tick))) in 
+  let effELSE = Disj (elseF1 , elseF2) in
+  let eff0 = Disj(effIF, effELSE) in
+  
+  let lhs = eff0 in 
+  let rhs = effect_delay in
   printReport lhs rhs ;;
 
-let testSTRICKCOMPAORE = stricTcompareTerm (Minus (Var "s", 1)) (Minus(Var "t", 1));;
+
+(*let testSTRICKCOMPAORE = stricTcompareTerm (Minus (Var "s", 1)) (Minus(Var "t", 1));;
 
 Printf.printf "\n%b\n" (testSTRICKCOMPAORE);;
 
 let testNormalPure = normalPure (PureAnd (TRUE, PureAnd (TRUE , PureAnd (Eq (Var "t",1), Eq (Var "t",1)))));;
 
 Printf.printf "\n[Result]  %s\n\n" (showPure testNormalPure)
-
+*)
 (*
 true/\b.a.b^t |- true/\a.b^t.b
 true
