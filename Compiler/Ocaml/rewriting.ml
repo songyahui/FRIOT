@@ -520,7 +520,7 @@ let rec enForcePure eff1 eff2 =
 let rec containment (effL:effect) (effR:effect) (delta:context) = 
 
   let normalFormL = normalEffect effL in 
-  let normalFormR = normalEffect (enForcePure normalFormL effR) in
+  let normalFormR = normalEffect effR in
   let showEntail  = showEntailmentEff normalFormL normalFormR in 
   let unfoldSingle ev normalFormL normalFormR del = 
     let derivL = derivative normalFormL ev in
@@ -763,7 +763,7 @@ let printReport lhs rhs =
   flush stdout;;
   ;;
 
-
+(*
 let example0 = 
   let lhs = Effect(TRUE, Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
   let rhs = Effect(TRUE, Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
@@ -863,7 +863,7 @@ let example13 =
     printReport lhs rhs ;;
 
 
-
+*)
 let deday = 
   let tick = (Event "Tick") in 
   let lightup = (Event "LightUp") in 
