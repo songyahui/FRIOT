@@ -517,6 +517,23 @@ let rec enForcePure eff1 eff2 =
   | Disj (_,_) -> raise (Foo "enForcePure exception")
   ;;
 
+let rec quantified_by_Term term str = 
+  match term with 
+    Var s1 -> if String.compare s1 str == 0 then true else false
+  | Plus (tIn1, num1) -> quantified_by_Term tIn1 str
+  | Minus (tIn1, num1) -> quantified_by_Term tIn1 str
+  ;;
+
+
+let rec quantified_in_LHS esL str = 
+  match esL with
+  | Ttimes (es1, term) -> quantified_by_Term term str
+  | Cons (es1, es2) -> quantified_in_LHS es1 str || quantified_in_LHS es2 str
+  | Omega (es1) -> quantified_in_LHS es1 str
+  | ESOr (es1, es2) -> raise (Foo "quantified_in_LHS exception")
+  | _ -> false
+  ;;
+
 let rec containment (effL:effect) (effR:effect) (delta:context) = 
 
   let normalFormL = normalEffect effL in 
@@ -615,7 +632,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                             let (tree1, re1 ) = (containment leftZero rightZero delta ) in
                             let (tree2, re2 ) =  (containment leftNonZero rightNonZero delta ) in 
                             (Node (showEntailmentEff effL effR , [tree1; tree2] ), re1 && re2)
-                        | false -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
+                        | false -> (*UNFOLD*) unfold esL delta effL effR normalFormL normalFormR
                         )
                     | Plus  (Var t, num) -> 
                         let newVar = getAfreeVar delta in 
@@ -635,6 +652,8 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                     Ttimes (esInR, termR) -> 
                     (match termR with 
                       Var s -> 
+                        if quantified_in_LHS esL s then unfold esL delta effL effR normalFormL normalFormR
+                        else 
                         (match  entailConstrains piR (Eq (Var s, 0) ) with 
                           true -> (*CASE SPLIT*) 
                             let zeroCase = PureAnd (piL, Eq (Var s, 0) ) in 
@@ -649,12 +668,16 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                         | false -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
                         )
                     | Plus  (Var t, num) -> 
+                        if quantified_in_LHS esL t then unfold esL delta effL effR normalFormL normalFormR
+                        else 
                         let newVar = getAfreeVar delta in 
                         let lhs = substituteEff normalFormL  (Plus  (Var t, num)) (Var newVar) in
                         let rhs = substituteEff normalFormR  (Plus  (Var t, num)) (Var newVar) in
                         let (tree, re) = containment lhs rhs delta in
                         (Node (showEntailmentEff normalFormL normalFormR ,[tree] ), re)
                     | Minus (Var t, num) -> 
+                        if quantified_in_LHS esL t then unfold esL delta effL effR normalFormL normalFormR
+                        else 
                         let newVar = getAfreeVar delta in 
                         let lhs = substituteEff normalFormL  (Minus  (Var t, num)) (Var newVar) in
                         let rhs = substituteEff normalFormR  (Minus  (Var t, num)) (Var newVar) in
@@ -665,6 +688,8 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                   | Cons (Ttimes (esInR, termR), restESR) -> 
                     (match termR with 
                       Var s -> 
+                        if quantified_in_LHS esL s then unfold esL delta effL effR normalFormL normalFormR
+                        else 
                         (match  entailConstrains piL (Eq (Var s, 0) ) with 
                           true -> (*CASE SPLIT*) 
                             let zeroCase = PureAnd (piR, Eq (Var s, 0) ) in 
@@ -679,12 +704,16 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                         | false -> (*UNFOLD*)unfold esL delta effL effR normalFormL normalFormR
                         )
                     | Plus  (Var t, num) -> 
+                        if quantified_in_LHS esL t then unfold esL delta effL effR normalFormL normalFormR
+                        else 
                         let newVar = getAfreeVar delta in 
                         let lhs = substituteEff normalFormL  (Plus  (Var t, num)) (Var newVar) in
                         let rhs = substituteEff normalFormR  (Plus  (Var t, num)) (Var newVar) in
 
                         containment lhs rhs delta 
                     | Minus (Var t, num) -> 
+                        if quantified_in_LHS esL t then unfold esL delta effL effR normalFormL normalFormR
+                        else 
                         let newVar = getAfreeVar delta in 
                         let lhs = substituteEff normalFormL  (Minus  (Var t, num)) (Var newVar) in
                         let rhs = substituteEff normalFormR  (Minus  (Var t, num)) (Var newVar) in
@@ -732,7 +761,7 @@ Printf.printf "%s" (showPure puretest);;
 Printf.printf "%s" (showEffect testes);;
 Printf.printf "%s" (showContext testcontext );;*)
 
-let a = Event "a" ;;
+let a = Event "Tick" ;;
 let b = Event "b" ;;
 let c = Event "c" ;;
 let ab = Cons (a,b) ;;
@@ -763,7 +792,7 @@ let printReport lhs rhs =
   flush stdout;;
   ;;
 
-(*
+
 let example0 = 
   let lhs = Effect(TRUE, Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
   let rhs = Effect(TRUE, Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
@@ -772,7 +801,7 @@ let example0 =
 
 let example1 = 
   let lhs = Effect(Gt (Var "t", 0), Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
-  let rhs = Effect(TRUE, Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
+  let rhs = Effect(Gt (Var "t", 0), Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
   printReport lhs rhs ;;
 
 let example2 = 
@@ -863,7 +892,12 @@ let example13 =
     printReport lhs rhs ;;
 
 
-*)
+
+
+let example11 = 
+  let lhs = Effect(TRUE, Cons (Event "Tick" ,createT_1 a)) in
+  let rhs = Effect(TRUE, createT a) in
+  printReport lhs rhs ;;
 
 let example11 = 
   let lhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
@@ -874,13 +908,14 @@ let deday =
   let tick = (Event "Tick") in 
   let lightup = (Event "LightUp") in 
   let eff1 = Effect (Gt (Var "t" ,-1), Cons (Ttimes (tick, Var "t"), lightup)) in 
-  let effect_delay = eff1 (*Disj (eff1, eff2)*) in
+
   let eff1_1 = Cons (Ttimes (tick, (Minus(Var "t",1))), lightup) in 
   let effIF = Effect (Eq (Var "t" ,0), lightup) in
   let elseF1 = Effect (PureOr(Gt (Var "t" ,0),Lt (Var "t" ,0)), Cons(tick, eff1_1)) in
   let elseF2 = Effect(PureOr(Gt (Var "t" ,0),Lt (Var "t" ,0)) , Cons (tick,Omega (tick))) in 
   let effELSE = Disj (elseF1 , elseF2) in
   let eff0 = Disj(effIF, effELSE) in
+  let effect_delay = Disj (eff1, elseF2) in
   
   let lhs = eff0 in 
   let rhs = effect_delay in
@@ -899,4 +934,5 @@ Printf.printf "\n[Result]  %s\n\n" (showPure testNormalPure)
 true/\b.a.b^t |- true/\a.b^t.b
 true
 *)
+
 
