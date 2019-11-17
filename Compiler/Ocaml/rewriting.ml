@@ -17,7 +17,6 @@ open Z3.BitVector
 open List
 open Tree
 
-
 (*----------------------------------------------------
 ---------------------DATA STRUCTURE-----------------
 ----------------------------------------------------*)
@@ -575,7 +574,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
         |  Effect (piR, Emp) ->  if entailConstrains piL piR then (Node(showEntail^"   [Prove-Frame]" ^" with R = "^(showES esL ), [Leaf;Leaf]),true) (*"Prove-Frame"*)
                                 else (Node(showEntail ^ "   [Frame-contra]", [Leaf;Leaf]),false) (*"Disprove-Frame"*)
         |  Effect (piR, esR) -> 
-          if (reoccur normalFormL normalFormR delta) == true 
+          if (reoccur piL normalFormL piR normalFormR delta) == true 
           then 
             if entailConstrains piL (getPureFromEffect normalFormR)
                then (Node(showEntail ^ "   [Prove-Reoccur]", [Leaf;Leaf]), true) 
@@ -770,6 +769,7 @@ let aOrb = ESOr (a, b) ;;
 let aOrc = ESOr (a, c) ;;
 let ab_or_c = ESOr (ab, c) ;;
 let omegaA = Omega (a);;
+let omegaB = Omega (b);;
 let omegaaOrb = Omega (aOrb);;
 
 let createT es = Ttimes (es, Var "t" );;
@@ -792,6 +792,16 @@ let printReport lhs rhs =
   flush stdout;;
   ;;
 
+let example = 
+  let lhs = Effect(Gt (Var "t", 0), Cons (createT (Event "a"),omegaA)) in
+  let rhs = Effect(Gt (Var "t", 0), Cons (createT (Event "a"),omegaB)) in
+  printReport lhs rhs ;;
+
+
+let example = 
+  let lhs = Effect(TRUE, Cons (Cons (Event "a",createT_1 (Event "a")),omegaA)) in
+  let rhs = Effect(TRUE, Cons (createT (Event "a"),omegaB)) in
+  printReport lhs rhs ;;
 
 let example0 = 
   let lhs = Effect(TRUE, Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
@@ -936,3 +946,8 @@ true
 *)
 
 
+TODO:
+1) fst function needs to take pure and es.
+2) reoccur function. 
+3) derivative runction. 
+4) reoccur must have a unfold in between. 
