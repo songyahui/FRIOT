@@ -10,5 +10,8 @@ motion port = Signal True
 sound :: Int -> Signal Int
 sound port = Signal 0
 
-button :: Int -> Signal Bool
-button port = Signal True
+brightness :: Int -> Signal Int
+brightness port = Signal 0
+
+accelerator :: Int -> Signal (Float, Float, Float)
+accelerator port = Signal (1,2,3)

@@ -23,6 +23,61 @@ lift_2 fun (Signal a) (Signal b) =  Signal (fun a b)
 lift_3 :: (a -> b -> c ->d) -> Signal a -> Signal b -> Signal c -> Signal d
 lift_3 fun (Signal a) (Signal b) (Signal c) =  Signal (fun a b c)
 
+lift_4 :: (a -> b -> c ->d -> e) -> 
+    Signal a -> Signal b -> Signal c -> Signal d -> Signal e
+lift_4 fun (Signal a) 
+            (Signal b) 
+            (Signal c) 
+            (Signal d) =  
+                Signal (fun a b c d)
+
+lift_5 :: (a -> b -> c ->d -> e->f) -> 
+    Signal a -> Signal b -> Signal c -> Signal d -> Signal e -> Signal f
+lift_5 fun (Signal a) 
+    (Signal b) 
+    (Signal c) 
+    (Signal d) 
+    (Signal e) =  
+        Signal (fun a b c d e )
+
+lift_6 :: (a -> b -> c ->d -> e->f ->g) -> 
+    Signal a -> Signal b -> Signal c -> 
+        Signal d -> Signal e -> Signal f -> Signal g
+lift_6 fun (Signal a) 
+    (Signal b) 
+    (Signal c) 
+    (Signal d) 
+    (Signal e) 
+    (Signal f) =  
+        Signal (fun a b c d e f)
+
+
+lift_7 :: (a -> b -> c ->d -> e->f ->g->h) -> 
+    Signal a -> Signal b -> Signal c -> 
+        Signal d -> Signal e -> Signal f -> Signal g -> Signal h
+lift_7 fun (Signal a) 
+    (Signal b) 
+    (Signal c) 
+    (Signal d) 
+    (Signal e) 
+    (Signal f) 
+    (Signal g) =  
+        Signal (fun a b c d e f g)
+
+
+lift_8 :: (a -> b -> c ->d -> e->f ->g->h -> i) -> 
+    Signal a -> Signal b -> Signal c -> 
+        Signal d -> Signal e -> Signal f -> Signal g -> Signal h -> Signal i
+lift_8 fun (Signal a) 
+    (Signal b) 
+    (Signal c) 
+    (Signal d) 
+    (Signal e) 
+    (Signal f) 
+    (Signal g) 
+    (Signal h) =  
+        Signal (fun a b c d e f g h)
+
 fold :: (a -> b -> b) -> b -> Signal a -> Signal b
 fold fun b (Signal a) = Signal (fun a b)
 
@@ -44,7 +99,3 @@ instance Monad Signal where
     return a = Signal a  
     (>>=) (Signal a) fun = (fun a) 
 
-
-
-
-  
