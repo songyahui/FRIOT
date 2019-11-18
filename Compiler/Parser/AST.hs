@@ -27,6 +27,7 @@ data Expr
   | Sync Expr 
   | Prior Int Expr 
   | List [Expr]
+  | Signal Expr
   | EFF String Expr
   deriving (Show, Eq)
 
@@ -40,7 +41,8 @@ data Pattern
   | PStr String
   | PInt Int
   | PVar Name
-  | PUnit
+  -- | PUnit
+  | Ptuple [Pattern]
   deriving (Show, Eq)
 
 -- TYPE
@@ -50,6 +52,7 @@ data Type
   | TBool 
   | TUnit
   | TSignal Type 
+  | Ttuple [Type]
   | TFun Type Type -- function type from BasicType to BasicType
 
   deriving (Show, Eq)
@@ -108,6 +111,7 @@ lowVar_Not_Key= do
     "lift_2" -> fail "a reserved keyword"
     "lift_3" -> fail "a reserved keyword"
     "effect" -> fail "a reserved keyword"
+    "Signal" -> fail "a reserved keyword"
     "otherwise" -> fail "a reserved keyword"
     otherwise -> string x
 

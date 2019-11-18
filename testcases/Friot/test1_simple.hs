@@ -8,5 +8,4 @@ import Output
 import Rpi
 
 
-main :: IO ()
 main = bPlus [(lcd 1 (Signal "test"))]

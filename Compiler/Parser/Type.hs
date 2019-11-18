@@ -13,10 +13,29 @@ tBtoBfun_left = do
 
 functionType :: Parser Type
 functionType = do
-    fir <- try $ lexeme_spa $ basicType <|> signalType
+    fir <- try $ lexeme_spa $ basicType <|> signalType <|> tParenttuple
     snd <- try $ tBtoBfun_left
     return $ (TFun fir snd)
 
+
+ttuple_left:: Parser Type 
+ttuple_left = do 
+    _ <- lexeme_spa $ char ','
+    ec <- lexeme_spa $ type_
+    return ec
+
+tupleType :: Parser Type
+tupleType = do
+    fir <- try $ lexeme_spa $ basicType <|> signalType
+    snd <- try $ many1 ttuple_left
+    return $ (Ttuple ([fir] ++ snd))
+
+tParenttuple :: Parser Type 
+tParenttuple = do 
+    lb <- lexeme $ char '(' 
+    first <- lexeme $ tupleType
+    rb <- lexeme_spa $ char ')' 
+    return $  first
 
 int_type :: Parser Type 
 int_type = do 
@@ -38,14 +57,15 @@ str_type = do
     _ <- string "String"
     return $ TString 
 
-unit_type :: Parser Type 
-unit_type = do 
-    _ <- string "()"
-    return $ TUnit 
+--unit_type :: Parser Type 
+--unit_type = do 
+--    _ <- string "()"
+--    return $ TUnit 
+
 
 basicType :: Parser Type 
 basicType = do
-    basic <- try str_type <|>int_type  <|> bool_type <|> unit_type 
+    basic <- try str_type <|>int_type  <|> bool_type -- <|> unit_type 
     return basic
 
 signalType :: Parser Type 
@@ -55,7 +75,7 @@ signalType = do
     return $ TSignal t
 
 type_ :: Parser Type 
-type_ = try functionType <|> basicType <|> signalType   --tLambda <|> list  <|>tuple <|> singleton
+type_ = try functionType <|> basicType <|> signalType <|> tParenttuple   --tLambda <|> list  <|>tuple <|> singleton
 
 
 types_ :: Parser [Type]

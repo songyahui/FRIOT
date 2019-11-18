@@ -63,34 +63,28 @@ list = do
     return $ PList content
 --}
 
-unit :: Parser Pattern
-unit = do 
-    rb <- lexeme $ char ')'
-    return PUnit
+ptuple_left:: Parser Pattern 
+ptuple_left = do 
+    _ <- lexeme_spa $ char ','
+    ec <- lexeme_spa $ pattern
+    return ec
 
-{--
-tuple :: Parser Pattern
-tuple = do 
-    first <- lexeme $ pattern_expr
-    cb1 <- lexeme $ char ',' 
-    second <- lexeme $ pattern_expr
-    cb2 <- optionMaybe $ lexeme $ char ',' 
-    case cb2 of 
-        Nothing -> do 
-            rb1 <- lexeme $ char ')' 
-            return $ PTuple first second []
-        Just comma -> do 
-            rest <- try $ sepBy pattern_expr (lexeme $ char ',')
-            rb2 <- lexeme $ char ')' 
-            return $ PTuple first second rest
+tuplePattern :: Parser Pattern
+tuplePattern = do
+    fir <- try $ lexeme_spa $ pattern
+    snd <- try $ many1 ptuple_left
+    return $ (Ptuple ([fir] ++ snd))
 
---}
 
-tuple_or_unit :: Parser Pattern-- Pattern Pattern [Patter
-tuple_or_unit = do 
+ptuple :: Parser Pattern-- Pattern Pattern [Patter
+ptuple = do 
     lb <- lexeme $ char '(' 
-    rest <-  unit --tuple <|>
-    return rest
+    first <- lexeme $ tuplePattern
+    rb <- lexeme_spa $ char ')' 
+    return $  first
+
+
+    
 
 
 --     first <- lexeme $ pattern0
@@ -134,7 +128,7 @@ pattern_expr = do
 
 
 pattern :: Parser Pattern
-pattern = try tuple_or_unit <|>termHelp --record <|> list
+pattern = try ptuple <|>termHelp --record <|> list
 
 
 --patterns :: Parser [Pattern]

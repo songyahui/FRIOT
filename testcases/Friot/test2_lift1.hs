@@ -8,7 +8,6 @@ import Output
 import Rpi
 
 showLCD :: Signal String
-showLCD = lift show (temprature 0)
+showLCD = (lift (show) (temprature 0))
 
-main :: IO ()
 main = bPlus [(lcd 1 showLCD)]

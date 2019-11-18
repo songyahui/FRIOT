@@ -22,5 +22,4 @@ trigger_buzzer :: Signal Bool
 trigger_buzzer = isPeopleIn
 
 
-main :: IO ()
-main = Rpi.bPlus [(lcd 2 (lcd_show)),(led 3 isPeopleIn),(buzzer 4 (trigger_buzzer))]
+main = bPlus [(lcd 2 (lcd_show)),(led 3 isPeopleIn),(buzzer 4 (trigger_buzzer))]

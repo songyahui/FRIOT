@@ -18,7 +18,6 @@ isPeopleIn :: Signal Bool
 isPeopleIn = lift (meth) (motion 0)
 
 
-main :: IO ()
-main = Rpi.bPlus [(lcd 2 (lcd_show)),(led 3 isPeopleIn)]
+main = bPlus [(lcd 2 (lcd_show)),(led 3 isPeopleIn)]
 
 
