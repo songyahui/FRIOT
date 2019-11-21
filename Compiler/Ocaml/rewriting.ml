@@ -54,7 +54,7 @@ type effect = Effect of pure * es
           | Disj of effect * effect
 
 
-type context =  ( effect * effect) list
+type context =  ( pure * es * pure * es) list
 
 (*----------------------------------------------------
 ----------------------PRINTING------------------------
@@ -121,7 +121,7 @@ let showRule (r:rule):string =
 let rec showContext (d:context) = 
   match d with
     [] -> ""
-  | (eff1, eff2)::rest -> (showEntailmentEff eff1 eff2 )^ ("\n") ^ showContext rest
+  | (piL, esL, piR, esR)::rest -> (showEntailmentEff (Effect (piL, esL)) (Effect (piR, esR)) )^ ("\n") ^ showContext rest
   ;;
 
 
@@ -418,12 +418,16 @@ let rec compareEff eff1 eff2 =
   | _ -> false
   ;;
 
-let rec reoccur effL effR delta  = 
+let rec reoccur piL esL piR esR delta num = 
+  if num == 0 then true
+  else
   match delta with 
   | [] -> false
-  | (eff1, eff2) :: rest -> 
-      if (compareEff effL eff1 && compareEff effR  eff2) then true 
-      else reoccur effL effR rest (*REOCCUR*) 
+  | (pi1, es1, pi2, es2) :: rest -> 
+      if (compareEff (Effect(piL, esL)) (Effect(pi1, es1)) && compareEff (Effect(piR, esR))  (Effect(pi2, es2))) 
+      then reoccur piL esL piR esR rest (num-1)
+
+      else reoccur piL esL piR esR rest num (*REOCCUR*) 
   ;;
 
 let rec addConstrain effect addPi =
@@ -451,16 +455,18 @@ let rec getAllVarFromES es =
   | _ -> []
   ;;
 
-let rec getAllVarFromEff effect = 
-  match effect with 
+let rec getAllVarFromEff es = getAllVarFromES es
+(*match effect with 
     Effect (pi, es) -> getAllVarFromES es
   | Disj (eff1, eff2) -> append (getAllVarFromEff eff1) (getAllVarFromEff eff2)
-  ;;
+*)
+;;
 
-let getAllVarFromDelta delta acc =  
+let rec getAllVarFromDelta (delta:context) acc =  
   match delta with 
     [] -> acc
-  | (eff1, eff2)::rest -> append acc (append (getAllVarFromEff eff1 ) (getAllVarFromEff eff2 ) )
+  | (piL, esL, piR, esR)::rest -> 
+      getAllVarFromDelta rest (append acc (append (getAllVarFromEff esL) (getAllVarFromEff esR ) ))
   ;;
 
 let freeVar = ["t1"; "t2"; "t3"; "t4";"t5";"t6";"t7";"t8";"t9"];;
@@ -553,7 +559,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
   let unfoldSingle ev piL esL piR esR del = 
     let derivL = derivative piL esL ev in
     let derivR = derivative piR esR ev in
-    let deltaNew = append del [(normalFormL, normalFormR)] in
+    let deltaNew = append del [(piL, esL, piR, esR)] in
     let (tree, result) = containment derivL derivR deltaNew in
     (Node (showEntailmentEff (Effect(piL, esL)) (Effect(piR, esR)) ^ "   [Unfold with Fst = "^  ev ^ "]",[tree] ), result)
   in
@@ -588,7 +594,7 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
         if entailConstrains piL piR 
         then (Node(showEntail^"   [Frame-Prove]" ^" with R = "^(showES esL ), []),true) 
         else (Node(showEntail ^ "   [Frame-Contra]", []),false) 
-      else if (reoccur normalFormL normalFormR delta) == true  
+      else if (reoccur piL esL piR esR delta 2) == true  
       (*[Reoccur]*)
       then
         if entailConstrains piL (getPureFromEffect normalFormR)
