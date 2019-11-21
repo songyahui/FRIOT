@@ -24,8 +24,10 @@ type terms = Var of string
            | Plus of terms * int
            | Minus of terms * int
 
+(* We use a string to represent an single event *)
 type event =  string 
 
+(*E vent sequence *)
 type es = Bot 
         | Emp 
         | Event of event
@@ -34,6 +36,7 @@ type es = Bot
         | Ttimes of es * terms
         | Omega of es
 
+(*Arithimetic pure formulae*)
 type pure = TRUE
           | FALSE
           | Gt of terms * int
@@ -43,6 +46,7 @@ type pure = TRUE
           | PureAnd of pure * pure
           | Neg of pure
 
+(*All the entailmnet rules, but so far not been used*)
 type rule = LHSOR   | RHSOR 
           | LHSEX   | RHSEX 
           | LHSSUB  | RHSSUB 
@@ -50,23 +54,27 @@ type rule = LHSOR   | RHSOR
           | UNFOLD  | DISPROVE 
           | FRAME   | REOCCUR
 
+(*Effects*)
 type effect = Effect of pure * es
           | Disj of effect * effect
 
-
+(*the effects entailment context*)
 type context =  ( pure * es * pure * es) list
 
 (*----------------------------------------------------
 ----------------------PRINTING------------------------
 ----------------------------------------------------*)
 
-let rec showTerms (t:terms) = 
+(*To pretty print terms*)
+let rec showTerms (t:terms):string = 
   match t with
     Var name -> name
   | Plus (t, num) -> (showTerms t) ^ ("+") ^ (string_of_int num)
   | Minus (t, num) -> (showTerms t) ^ ("-") ^ (string_of_int num)
   ;;
-let rec showES es = 
+
+(*To pretty print event sequences*)
+let rec showES (es:es):string = 
   match es with
     Bot -> "_|_"
   | Emp -> "emp"
@@ -77,7 +85,8 @@ let rec showES es =
   | Omega es -> (showES es) ^ "^" ^  "w" 
   ;;
 
-let rec showPure p = 
+(*To pretty print pure formulea*)
+let rec showPure (p:pure):string = 
   match p with
     TRUE -> "true"
   | FALSE -> "false"
@@ -89,7 +98,8 @@ let rec showPure p =
   | Neg p -> "~" ^ showPure p
   ;; 
 
-let rec showEffect e = 
+(*To pretty print effects*)
+let rec showEffect (e:effect) :string = 
   match e with
     Effect (p, es) -> 
       if p == TRUE then showES es
@@ -97,11 +107,13 @@ let rec showEffect e =
   | Disj (es1, es2) -> "(" ^ showEffect es1 ^ ")\\/("  ^ showEffect es2^")"
   ;;
 
-let showEntailmentEff eff1 eff2 = showEffect eff1 ^ " |- "  ^ showEffect eff2
+(*To pretty print effects entialments*)
+let showEntailmentEff (eff1:effect)( eff2:effect):string = showEffect eff1 ^ " |- "  ^ showEffect eff2;;
 
-let showEntailmentES es1 es2 = showES es1 ^ " |- "  ^ showES es2
+(*To pretty print event sequence entailment*)
+let showEntailmentES (es1:es) (es2:es):string = showES es1 ^ " |- "  ^ showES es2;;
 
-
+(*To pretty print entialment rules*)
 let showRule (r:rule):string = 
   match r with
     LHSOR -> "[LHSOR]"
@@ -117,14 +129,12 @@ let showRule (r:rule):string =
   | FRAME  -> "FRAME"
   | REOCCUR -> "REOCCUR"
 
-
-let rec showContext (d:context) = 
+(*To pretty print all the context entailments*)
+let rec showContext (d:context):string = 
   match d with
     [] -> ""
   | (piL, esL, piR, esR)::rest -> (showEntailmentEff (Effect (piL, esL)) (Effect (piR, esR)) )^ ("\n") ^ showContext rest
   ;;
-
-
 
 (*----------------------------------------------------
 ------------------Utility Functions------------------
@@ -323,8 +333,6 @@ let rec existPi pi li =
     )
     ;;
 
-
-
 let rec normalES es pi = 
   match es with
     Bot -> es
@@ -469,7 +477,10 @@ let rec getAllVarFromDelta (delta:context) acc =
       getAllVarFromDelta rest (append acc (append (getAllVarFromEff esL) (getAllVarFromEff esR ) ))
   ;;
 
-let freeVar = ["t1"; "t2"; "t3"; "t4";"t5";"t6";"t7";"t8";"t9"];;
+(*used to generate the free veriables, for subsititution*)
+let freeVar = ["t1"; "t2"; "t3"; "t4";"t5";"t6";"t7";"t8";"t9";"t10"
+              ;"t11"; "t12"; "t13"; "t14";"t15";"t16";"t17";"t18";"t19";"t20"
+              ;"t21"; "t22"; "t23"; "t24";"t25";"t26";"t27";"t28";"t29";"t30"];;
 
 let rec exist li ele = 
   match li with 
@@ -551,7 +562,15 @@ let rec quantified_in_LHS esL str =
   | _ -> false
   ;;
 
-let rec containment (effL:effect) (effR:effect) (delta:context) = 
+
+(*-------------------------------------------------------------
+--------------------Main Entrance------------------------------
+---------------------------------------------------------------
+This decision procedure returns a derivation tree and a boolean
+value indicating the validility of the effect entailment
+-------------------------------------------------------------*)
+
+let rec containment (effL:effect) (effR:effect) (delta:context): (binary_tree * bool) = 
 
   let normalFormL = normalEffect effL in 
   let normalFormR = normalEffect effR in
@@ -563,11 +582,13 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
     let (tree, result) = containment derivL derivR deltaNew in
     (Node (showEntailmentEff (Effect(piL, esL)) (Effect(piR, esR)) ^ "   [Unfold with Fst = "^  ev ^ "]",[tree] ), result)
   in
+  (*Unfold function which calls unfoldSingle*)
   let unfold del piL esL piR esR= 
     let fstL = fst piL esL in 
     let resultL = map (fun ev ->  (unfoldSingle ev piL esL piR esR del)) fstL in
     let trees = map (fun tuple -> getFst tuple ) resultL in
     let results = map (fun tuple -> getSnd tuple ) resultL in
+    (*must be all the sub trees success && *)
     let result = List.fold_right (&& ) results true in  
     (Node (showEntailmentEff (Effect(piL, esL)) (Effect(piR, esR)) ,trees ), result)    
   in 
@@ -726,7 +747,6 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                         let newVar = getAfreeVar delta in 
                         let lhs = substituteEff normalFormL  (Plus  (Var t, num)) (Var newVar) in
                         let rhs = substituteEff normalFormR  (Plus  (Var t, num)) (Var newVar) in
-
                         containment lhs rhs delta 
                 | Minus (Var t, num) -> 
                         if quantified_in_LHS esL t then unfold delta piL esL piR esR
@@ -739,12 +759,19 @@ let rec containment (effL:effect) (effR:effect) (delta:context) =
                 )
             | _ -> (*UNFOLD*)unfold delta piL esL piR esR
             )
-        )       
+        )        
   ;;
   
 (*----------------------------------------------------
 ----------------------TESTING-------------------------
 ----------------------------------------------------*)
+
+type expectation = bool
+
+type entailment =  (effect * effect * expectation) 
+
+
+
 
 let ttest = (Plus ((Var "song"),1));;
 let ttest1 = (Var "t");;
@@ -803,127 +830,131 @@ let printReport lhs rhs =
   flush stdout;;
   ;;
 
-let example = 
-  let lhs = Effect(Gt (Var "t", 0), Cons (createT (Event "a"),omegaA)) in
-  let rhs = Effect(Gt (Var "t", 0), Cons (createT (Event "a"),omegaB)) in
-  printReport lhs rhs ;;
+let testcases : entailment list= 
+  [
 
-
-let example = 
-  let lhs = Effect(TRUE, Cons (Cons (Event "a",createT_1 (Event "a")),omegaA)) in
-  let rhs = Effect(TRUE, Cons (createT (Event "a"),omegaB)) in
-  printReport lhs rhs ;;
-
-let example0 = 
-  let lhs = Effect(TRUE, Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
-  let rhs = Effect(TRUE, Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
-  printReport lhs rhs ;;
-
-
-let example1 = 
-  let lhs = Effect(Gt (Var "t", 0), Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t"))) in
-  let rhs = Effect(Gt (Var "t", 0), Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b")) in
-  printReport lhs rhs ;;
-
-let example2 = 
-  let lhs = Effect(TRUE, Event "a") in
-  let rhs = Effect(TRUE, Event "a") in
-
-  printReport lhs rhs ;;
-
-let example3 = 
-  let lhs = Effect(TRUE, ab) in
-  let rhs = Effect(TRUE, bc) in
-  printReport lhs rhs ;;
-
-let example4 = 
-  let lhs = Effect(TRUE, a) in
-  let rhs = Effect(TRUE, aOrb) in
-  printReport lhs rhs ;;
-
-
-let example5 = 
-  let lhs = Effect(TRUE, aOrb) in
-  let rhs = Effect(TRUE, a) in
-  printReport lhs rhs ;;
-
-let example5 = 
-  let lhs = Effect(TRUE, ab) in
-  let rhs = Effect(TRUE, a) in
-  printReport lhs rhs ;;
-
-
-let example6 = 
-  let lhs = Effect(TRUE, omegaA) in
-  let rhs = Effect(TRUE, omegaaOrb) in
-  printReport lhs rhs ;;
+  (Effect(Gt (Var "t", 0), Cons (createT (Event "a"),omegaA))
+  ,Effect(Gt (Var "t", 0), Cons (createT (Event "a"),omegaB))
+  ,true)
+  ;
+  (Effect(TRUE, Cons (Cons (Event "a",createT_1 (Event "a")),omegaA))
+  ,Effect(TRUE, Cons (createT (Event "a"),omegaB))
+  ,true)
+  ;
+  (Effect(TRUE, Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t")))
+  ,Effect(TRUE, Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b"))
+  ,true)
+  ;
+  (Effect(Gt (Var "t", 0), Cons (Event "b", Ttimes (Cons (Event "a", Event "b"),Var "t")))
+  ,Effect(Gt (Var "t", 0), Cons (Ttimes (Cons (Event "a", Event "b"),Var "t"), Event "b"))
+  ,true)
+  ;
+  (Effect(TRUE, Event "a")
+  ,Effect(TRUE, Event "a")
+  ,true)
+  ;
+  (Effect(TRUE, ab)
+  ,Effect(TRUE, bc)
+  ,true)
+  ;
+  (Effect(TRUE, a)
+  ,Effect(TRUE, aOrb)
+  ,true
+  )
+  ;
+  (Effect(TRUE, aOrb)
+  ,Effect(TRUE, a)
+  ,true
+  )
+  ;
+  (Effect(TRUE, ab)
+  ,Effect(TRUE, a)
+  ,true
+  )
+  ;
+  (Effect(TRUE, omegaA)
+  ,Effect(TRUE, omegaaOrb)
+  ,true
+  )
+  ;
+  (Effect(TRUE, omegaaOrb) 
+  ,Effect(TRUE, omegaA) 
+  ,true
+  )
+  ;
+  (Effect(TRUE, createT a) 
+  ,Effect(TRUE, createT a)
+  ,true
+  )
+  ;
+  (Effect(TRUE, createT a) 
+  ,Effect(Gt(Var "t", 0), createT a)
+  ,true
+  )
+  ;
+  (Effect(TRUE, createT a)
+  ,Effect(TRUE, createT ab)
+  ,true
+  )
+  ;
+  (Effect(TRUE, createT_1 a)
+  ,Effect(TRUE, createT_1 a)
+  ,true
+  )
+  ;
+  (Effect(TRUE, Cons (Event "a" ,createT_1 a))
+  ,Effect(TRUE, createT a)
+  ,true
+  )
+  ;
+  (Effect(TRUE, createT a)
+  ,Effect(TRUE, Cons (Event "a" ,createT_1 a))
+  ,true
+  )
+  ;
+  (Effect(Gt(Var "t", -1), createT a)
+  ,Effect(TRUE, Cons (Event "a" ,createT_1 a))
+  ,true
+  )
+  ;
+  (Effect(Gt(Var "t", 0), createT a)
+  ,Effect(TRUE, createT_1 a)
+  ,true
+  )
+  ;
+   (*THIS ONE IS WRONG!*)
+  (Effect(Gt(Var "s", 0), Cons (createT a ,createS b))
+  ,Effect(TRUE, Cons (createT a ,createS_1 b))
+  ,true
+  )
+  ;
+  (Effect(TRUE, omegaA)
+  ,Effect(TRUE, createT_1 a)
+  ,true
+  )
+  ;
+  (Effect(TRUE, Cons (Event "Tick" ,createT_1 a))
+  ,Effect(TRUE, createT a)
+  ,true
+  )
+  ;
+  (Effect(TRUE, Cons (Event "a" ,createT_1 a)) 
+  ,Effect(TRUE, createT a)
+  ,true
+  )
   
+  ];;
 
-let example7 = 
-  let lhs = Effect(TRUE, omegaaOrb) in
-  let rhs = Effect(TRUE, omegaA) in
-  printReport lhs rhs ;;
-
-let example8 = 
-    let lhs = Effect(TRUE, createT a) in
-    let rhs = Effect(TRUE, createT a) in
-    printReport lhs rhs ;;
-
-let example9 = 
-    let lhs = Effect(TRUE, createT a) in
-    let rhs = Effect(TRUE, createT ab) in
-    printReport lhs rhs ;;
+let rec runTestcases (suites :entailment list) =
+  match suites with
+  [] -> ""
+  | (lhs, rhs, expect) :: xs ->  
+    printReport lhs rhs;
+    runTestcases xs
+    ;;
 
 
-
-let example10 = 
-    let lhs = Effect(TRUE, createT_1 a) in
-    let rhs = Effect(TRUE, createT_1 a) in
-    printReport lhs rhs ;;
-
-let example11 = 
-    let lhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
-    let rhs = Effect(TRUE, createT a) in
-    printReport lhs rhs ;;
-
-let example12 = 
-    let lhs = Effect(TRUE, createT a) in 
-    let rhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
-    printReport lhs rhs ;;
-
-let example12 = 
-    let lhs = Effect(Gt(Var "t", -1), createT a) in 
-    let rhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
-    printReport lhs rhs ;;
-
-let example12 = 
-    let lhs = Effect(Gt(Var "t", 0), createT a) in 
-    let rhs = Effect(TRUE, createT_1 a) in
-    printReport lhs rhs ;;
-
-    (*THIS ONE IS WRONG!*)
-let example13 = 
-    let lhs = Effect(Gt(Var "s", 0), Cons (createT a ,createS b)) in
-    let rhs = Effect(TRUE, Cons (createT a ,createS_1 b)) in
-    printReport lhs rhs ;;
-
-let example13 = 
-    let lhs = Effect(TRUE, omegaA) in
-    let rhs = Effect(TRUE, createT_1 a) in
-    printReport lhs rhs ;;
-
-
-
-
-let example11 = 
-  let lhs = Effect(TRUE, Cons (Event "Tick" ,createT_1 a)) in
-  let rhs = Effect(TRUE, createT a) in
-  printReport lhs rhs ;;
-
-let example11 = 
-  let lhs = Effect(TRUE, Cons (Event "a" ,createT_1 a)) in
-  let rhs = Effect(TRUE, createT a) in
-  printReport lhs rhs ;;
+let runsutes = runTestcases testcases;;
   
 let deday = 
   let tick = (Event "Tick") in 
@@ -940,25 +971,5 @@ let deday =
   
   let lhs = eff0 in 
   let rhs = effect_delay in
+  
   printReport lhs rhs ;;
-
-
-(*let testSTRICKCOMPAORE = stricTcompareTerm (Minus (Var "s", 1)) (Minus(Var "t", 1));;
-
-Printf.printf "\n%b\n" (testSTRICKCOMPAORE);;
-
-let testNormalPure = normalPure (PureAnd (TRUE, PureAnd (TRUE , PureAnd (Eq (Var "t",1), Eq (Var "t",1)))));;
-
-Printf.printf "\n[Result]  %s\n\n" (showPure testNormalPure)
-*)
-(*
-true/\b.a.b^t |- true/\a.b^t.b
-true
-*)
-
-(*
-
-TODO:
-2) reoccur function. 
-4) reoccur must have a unfold in between. 
-*)
