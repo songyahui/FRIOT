@@ -15,51 +15,8 @@ open Z3.Arithmetic.Integer
 open Z3.Arithmetic.Real
 open Z3.BitVector
 open List
-open Tree
+open Ast
 
-(*----------------------------------------------------
----------------------DATA STRUCTURE-----------------
-----------------------------------------------------*)
-type terms = Var of string
-           | Plus of terms * int
-           | Minus of terms * int
-
-(* We use a string to represent an single event *)
-type event =  string 
-
-(*E vent sequence *)
-type es = Bot 
-        | Emp 
-        | Event of event
-        | Cons of es * es
-        | ESOr of es * es
-        | Ttimes of es * terms
-        | Omega of es
-
-(*Arithimetic pure formulae*)
-type pure = TRUE
-          | FALSE
-          | Gt of terms * int
-          | Lt of terms * int
-          | Eq of terms * int
-          | PureOr of pure * pure
-          | PureAnd of pure * pure
-          | Neg of pure
-
-(*All the entailmnet rules, but so far not been used*)
-type rule = LHSOR   | RHSOR 
-          | LHSEX   | RHSEX 
-          | LHSSUB  | RHSSUB 
-          | LHSCASE | RHSCASE 
-          | UNFOLD  | DISPROVE 
-          | FRAME   | REOCCUR
-
-(*Effects*)
-type effect = Effect of pure * es
-          | Disj of effect * effect
-
-(*the effects entailment context*)
-type context =  ( pure * es * pure * es) list
 
 (*----------------------------------------------------
 ----------------------PRINTING------------------------
@@ -973,3 +930,10 @@ let deday =
   let rhs = effect_delay in
   
   printReport lhs rhs ;;
+
+
+  (*
+  1, parser
+  2, website
+  2, comparasion
+  *)
