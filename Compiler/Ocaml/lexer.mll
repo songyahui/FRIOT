@@ -6,7 +6,7 @@ rule token = parse
 | "FALSE" { FALSE }
 | ['0'-'9'] ['0'-'9']* as num {NUM (int_of_string num)}
 | ['A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']* as str { EVENT str }
-| ['o'-'z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']* as str { VAR str }
+| ['a'-'v' 'x'-'z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']* as str { VAR str }
 | "Emp" { EMPTY }
 | '>' {GT}
 | '<' {LT}

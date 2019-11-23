@@ -37,4 +37,7 @@ ocamlc -c parser.ml
 ocamlc -c lexer.ml
 ocamlfind ocamlopt -o trs -package z3 -linkpkg Tree.ml Rewriting.ml Parser.ml Lexer.ml EffectParse.ml
 
+
+1. containment, entilment, term rewriting system.
+2. not complete.
 *)
