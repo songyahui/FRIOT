@@ -13,19 +13,24 @@ preDefinedOut =
     , ("led", TBool)
     ]
 
-data SignalGraph = SG [SignalNode] deriving (Show, Eq)
+type SignalGraph = [OutputNode] 
 
-type Methord = Expr
+type Method = Expr
 type NM = String
 type Accumulator = Expr
+type Port = Int
 
-data SignalNode = 
-      NoNode 
-    | Source NM Type [Expr]  -- input signal type, param, name 
-    | LiftN  NM Type Methord [SignalNode] -- liftn 
-    | FoldP  NM Type Methord Accumulator SignalNode -- 
-    | IoN    NM Type Expr SignalNode -- int -> Signal -> IO()
-    | SYNC   SignalNode
-    | PRIOR  SignalNode  
+type OutputNode =  (NM, Type, Port, SignalTerm) -- int -> Signal -> IO()
+
+data SignalTerm = 
+      ConstStr String
+    | ConstInt Int
+    | Source NM Type Port -- [Expr]  -- input signal type, param, name 
+    | LetSignal NM SignalTerm
+    | LiftN  NM Type Int Method [SignalTerm] -- liftn 
+    | FoldP  NM Type Method Accumulator SignalTerm -- 
+    | SYNC   SignalTerm
+    | PRIOR  Int SignalTerm  
+    | Nonode
     deriving (Show, Eq)
-    --   ouput      input
+

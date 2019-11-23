@@ -49,8 +49,3 @@ effect:
 | LPAR r = effect RPAR { r }
 | a = pure  CONJ  b= es  {Effect (a, b)}
 | a = effect  DISJ  b=effect  {Disj (a,b)}
-
-
-
-
-

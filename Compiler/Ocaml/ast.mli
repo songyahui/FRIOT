@@ -1,4 +1,6 @@
-
+(*----------------------------------------------------
+---------------------DATA STRUCTURE-----------------
+----------------------------------------------------*)
 type terms = Var of string
            | Plus of terms * int
            | Minus of terms * int
@@ -25,5 +27,9 @@ type pure = TRUE
           | PureAnd of pure * pure
           | Neg of pure
 
+
+
+(*Effects*)
 type effect = Effect of pure * es
           | Disj of effect * effect
+

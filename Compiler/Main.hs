@@ -23,8 +23,8 @@ main = do
             putStrLn "-----------Parse succecfully!-----------" 
             --verification astp
             --putStrLn "-----------Verified succecfully!-----------" 
-            -- print $ signalGraph astp
-            -- putStrLn "-----------SignalGraph succecfully!-----------" 
+            print $ signalGraph astp
+            putStrLn "-----------SignalGraph succecfully!-----------" 
             --print $ c_generator astp (signalGraph astp) 
                -- print $ generator $ transformer astp []
             --writeFile (pathOut ++ (head args) ++ ".c") ( c_generator astp (signalGraph astp) )

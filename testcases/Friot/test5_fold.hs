@@ -8,7 +8,6 @@ import Output
 import Rpi
 
 
-
 peoplecount :: Signal Int
 peoplecount = fold  (\a acc -> acc +1) 0 (motion 0)  
 

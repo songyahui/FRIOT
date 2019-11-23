@@ -17,7 +17,7 @@ getOutput astp =
                 App "bPlus" [List el]  -> el
                 otherwise -> []
         otherwise -> []
-
+{--
 getDef :: [Decl] -> String -> Decl --([Pattern], Expr)
 getDef (x:xs) name =
     case x of 
@@ -35,57 +35,65 @@ find_type_anno (x:xs) name =
         otherwise -> find_type_anno xs name
 find_type_anno _ _ =  TString
 
- {-   mothToExpr:: [Decl] -> Expr -> Expr
-mothToExpr astp expr =
-    case expr of 
-        Var name -> 
-            let (pl, _expr) = getDef astp name 
-            in mothToExpr astp _expr
-        otherwise -> expr
-        
-    
-tranExpr :: Expr -> String -> [Decl] -> SignalNode
-tranExpr expr name astp=
-    let _type = find_type_anno astp name
-    in case expr of 
-        
-        Var name -> 
-            let (pl, _expr) = getDef astp name 
-            in tranExpr _expr name astp
-        App "Env.motion" pl -> Source "Env.motion" TBool pl 
-        App "Env.temprature" pl -> Source "Env.temprature" TInt pl 
-        App "lift" (meth:pl) -> 
-            let chileN = map (\e -> tranExpr e "unknown" astp) pl
-            in LiftN name 1 (mothToExpr astp meth) _type chileN
-        App "lift_2" (meth:pl) -> 
-            let chileN = map (\e -> tranExpr e "unknown" astp) pl
-            in LiftN name 2 (mothToExpr astp meth) _type chileN
-        App "foldP" (meth:acc:pl) -> 
-            let chileN = map (\e -> tranExpr e "unknown" astp) pl
-            in FoldP name (mothToExpr astp meth) _type acc (head chileN)
-
-   -}      
+   
    
 getNodeFromDef :: [Decl] -> Decl -> SignalNode 
 getNodeFromDef astp def = NoNode
 
-
-
-constructGraph :: [Decl] -> Expr -> SignalNode
-constructGraph astp expr = 
-    let getNodeForOutput :: [Decl] -> String -> SignalNode
+let getNodeForOutput :: [Decl] -> String -> OutputNode
         getNodeForOutput astp name = 
             let def = getDef astp name 
             in getNodeFromDef astp def
-    in case expr of 
-        App "lcd" (e1: (Var method) :es) ->
-            IoN "lcd" TString e1 (getNodeForOutput astp (( method))) -- (tranExpr e2 "unknown" astp)
-        App "led" (e1:(Var method):es) ->
-            IoN "led" TBool e1 (getNodeForOutput astp (( method)))   --(tranExpr e2 "unknown" astp)
+    in 
 
+--}
+
+constructSignalTerm:: Expr -> SignalTerm
+constructSignalTerm expr = 
+    case expr of
+        Signal (Int n) -> ConstInt n
+        Signal (Str str) -> ConstStr str
+        App "temprature" [Int n] -> Source "temprature" (TSignal TInt) n
+        App "motion" [Int n] -> Source "motion" (TSignal TBool) n
+        App "sound" [Int n] -> Source "sound" (TSignal TInt) n
+        App "brightness" [Int n] -> Source "brightness" (TSignal TInt) n
+        App "accelerator" [Int n] -> Source "accelerator" (Ttuple [TInt, TInt, TInt]) n
+        App "button" [Int n] -> Source "button" (TSignal TBool) n
+        -- Let [Def] Expr
+        
+        
+        
+        otherwise -> Nonode
+        {--
+        Let [Def] Expr
+        Fold Expr Expr Expr
+        Lift Expr Expr -- lift
+        Lift2 Expr [Expr] -- lift2
+        Lift3 Expr [Expr] -- lift3
+        Sync Expr 
+        Prior Int Expr 
+        --}
+
+constructGraph :: [Decl] -> Expr -> OutputNode
+constructGraph astp expr = 
+    case expr of 
+        App "lcd" ((Int n1): e :es) ->
+            ("lcd", TString , n1, constructSignalTerm e)
+            -- IoN "lcd" TString e1 (getNodeForOutput astp (( method))) -- (tranExpr e2 "unknown" astp)
+        App "led" ((Int n1):e:es) ->
+            ("led", TBool , n1, constructSignalTerm e)
+            -- IoN "led" TBool e1 (getNodeForOutput astp (( method)))   --(tranExpr e2 "unknown" astp)
+        App "buzzer" ((Int n1):(e):es) ->
+            ("buzzer", TBool , n1, constructSignalTerm e)
+        App "fan" ((Int n1):(e):es) ->
+            ("fan", TInt , n1, constructSignalTerm e)  
+        App "alarm" ((Int n1):(e):es) ->
+            ("alarm", Ttuple [TInt, TInt] , n1, constructSignalTerm e) 
         
 signalGraph ::  [Decl] -> SignalGraph
 signalGraph astp = 
     let outputs = getOutput astp
         graph = map (\e -> constructGraph astp e)  outputs
-    in SG graph
+    in graph
+
+

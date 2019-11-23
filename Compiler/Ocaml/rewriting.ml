@@ -15,8 +15,24 @@ open Z3.Arithmetic.Integer
 open Z3.Arithmetic.Real
 open Z3.BitVector
 open List
+open Tree
 open Ast
 
+
+(*
+ocamlfind ocamlopt -o trs -package z3 -linkpkg Tree.ml  rewriting.ml
+*)
+
+(*All the entailmnet rules, but so far not been used*)
+type rule = LHSOR   | RHSOR 
+          | LHSEX   | RHSEX 
+          | LHSSUB  | RHSSUB 
+          | LHSCASE | RHSCASE 
+          | UNFOLD  | DISPROVE 
+          | FRAME   | REOCCUR
+
+(*the effects entailment context*)
+type context =  ( pure * es * pure * es) list
 
 (*----------------------------------------------------
 ----------------------PRINTING------------------------
@@ -910,8 +926,8 @@ let rec runTestcases (suites :entailment list) =
     runTestcases xs
     ;;
 
+(*let runsutes = runTestcases testcases;;
 
-let runsutes = runTestcases testcases;;
   
 let deday = 
   let tick = (Event "Tick") in 
@@ -930,7 +946,7 @@ let deday =
   let rhs = effect_delay in
   
   printReport lhs rhs ;;
-
+*)
 
   (*
   1, parser

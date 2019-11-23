@@ -5,6 +5,7 @@
 *)
 open Printf
 
+
 let rec iter f = function
   | [] -> ()
   | [x] ->
@@ -37,8 +38,6 @@ let to_buffer ?(line_prefix = "") ~get_name ~get_children buf x =
   Buffer.add_string buf line_prefix;
   print_root line_prefix x
 
-
-
 let printTree ?line_prefix ~get_name ~get_children x =
   let buf = Buffer.create 1000 in
   to_buffer ?line_prefix ~get_name ~get_children buf x;
@@ -47,6 +46,9 @@ let printTree ?line_prefix ~get_name ~get_children x =
 type binary_tree =
   | Node of string * (binary_tree  list )
   | Leaf
+
+
+(******************testing********************)
 
 let root = Node("root", [Leaf;Leaf]);;
 
@@ -86,13 +88,12 @@ let tree =
     );;
 
     
-let test () =
-  
+(*let () =
   let result = printTree ~line_prefix:"* " ~get_name ~get_children shared_node 
   in
   print_string result;
-  flush stdout;;
-  (*assert (result = expected_result)*)
+  flush stdout;;*)
+
 
 
 

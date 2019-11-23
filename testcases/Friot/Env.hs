@@ -13,5 +13,7 @@ sound port = Signal 0
 brightness :: Int -> Signal Int
 brightness port = Signal 0
 
-accelerator :: Int -> Signal (Float, Float, Float)
+accelerator :: Int -> Signal (Int, Int, Int)
 accelerator port = Signal (1,2,3)
+
+
