@@ -1,0 +1,9 @@
+ocamllex lexer.mll
+menhir parser.mly
+ocamlc -c ast.mli
+ocamlc -c parser.mli
+ocamlc -c parser.ml
+ocamlc -c lexer.ml
+ocamlfind ocamlopt -o trs -package z3 -linkpkg Tree.ml Rewriting.ml Parser.ml Lexer.ml EffectParse.ml
+
+timeout 10 ./trs ../src/hip/ex1.ss ../src/temp/output.txt 2>&1
