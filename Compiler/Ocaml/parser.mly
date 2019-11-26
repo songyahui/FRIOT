@@ -3,7 +3,7 @@
 %token <string> EVENT
 %token <string> VAR
 %token <int> NUM
-%token EMPTY CHOICE LPAR RPAR CONCAT OMEGA POWER PLUS MINUS TRUE FALSE DISJ CONJ SPACES
+%token EMPTY CHOICE LPAR RPAR CONCAT OMEGA POWER PLUS MINUS TRUE FALSE DISJ CONJ SPACES ENTIL
 %token EOF GT LT EQ
 
 %left POWER
@@ -13,11 +13,11 @@
 %left CONJ
 
 %start main
-%type <Ast.effect> main
+%type <Ast.entilment> main
 
 %%
 
-main: r = effect EOF { r }
+main: r = entailment EOF { r }
 
 term:
 | str = VAR { Var str }
@@ -49,3 +49,6 @@ effect:
 | LPAR r = effect RPAR { r }
 | a = pure  CONJ  b= es  {Effect (a, b)}
 | a = effect  DISJ  b=effect  {Disj (a,b)}
+
+entailment:
+| lhs = effect SPACES ENTIL SPACES rhs = effect {EE (lhs, rhs)}

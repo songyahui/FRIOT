@@ -792,15 +792,11 @@ let createT_1 es = Ttimes (es, Minus (Var "t", 1) );;
 let createS_1 es = Ttimes (es, Minus (Var "s", 1) );;
 
 
-let printReport lhs rhs =
+let printReport lhs rhs:string =
   let (tree, re) = containment  lhs rhs [] in
-  Printf.printf "\n%s\n" ("====================================");
-  Printf.printf "\n%s\n" (showEntailmentEff lhs rhs) ;
-  Printf.printf "\n[Result]  %s\n\n" (if re then "Succeed" else "Fail") ;
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
-  print_string result;
- 
-  flush stdout;;
+  let buffur = ( "===================================="^"\n" ^(showEntailmentEff lhs rhs)^"\n[Result] " ^(if re then "Succeed" else "Fail") ^"\n\n"^ result)
+  in buffur
   ;;
 
 let testcases : entailment list= 
@@ -922,7 +918,7 @@ let rec runTestcases (suites :entailment list) =
   match suites with
   [] -> ""
   | (lhs, rhs, expect) :: xs ->  
-    printReport lhs rhs;
+    print_string (printReport lhs rhs);
     runTestcases xs
     ;;
 

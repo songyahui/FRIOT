@@ -1,6 +1,7 @@
 { open Parser }
 
 rule token = parse
+| "|-" {ENTIL}
 | [' ']* {SPACES} 
 | "TRUE" { TRUE }
 | "FALSE" { FALSE }

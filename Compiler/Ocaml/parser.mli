@@ -18,6 +18,7 @@ type token =
   | EVENT of (string)
   | EQ
   | EOF
+  | ENTIL
   | EMPTY
   | DISJ
   | CONJ
@@ -30,4 +31,4 @@ exception Error
 
 (* The monolithic API. *)
 
-val main: (Lexing.lexbuf -> token) -> Lexing.lexbuf -> (Ast.effect)
+val main: (Lexing.lexbuf -> token) -> Lexing.lexbuf -> (Ast.entilment)
